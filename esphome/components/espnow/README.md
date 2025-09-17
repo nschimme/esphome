@@ -9,6 +9,8 @@ This component can be used to send and receive raw ESP-Now packets, and it can a
 ```yaml
 espnow:
   id: espnow_hub
+  peers:
+    - "AA:BB:CC:DD:EE:FF"
   # ... other espnow options
 ```
 
@@ -24,9 +26,16 @@ packet_transport:
     id: espnow_transport
     espnow_id: espnow_hub
     default_peer: "FF:FF:FF:FF:FF:FF"
+    use_broadcast: false
 ```
 
-The `default_peer` option is the MAC address of the peer to send packets to. If this option is not set, packets will not be sent.
+The `espnow` packet transport has the following sending modes:
+-   **Default Peer:** If `default_peer` is set, all packets will be sent to this peer.
+-   **Broadcast:** If `use_broadcast` is set to `true`, all packets will be broadcasted to all devices on the same channel.
+-   **Multi-peer:** If neither `default_peer` nor `use_broadcast` is set, packets will be sent to all the peers that are configured in the parent `espnow` component.
+-   If none of these options are configured, an error will be logged and no packets will be sent.
+
+You can only use one of `default_peer` or `use_broadcast` at a time.
 
 ### Example Usage
 

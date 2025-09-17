@@ -108,6 +108,8 @@ class ESPNowComponent : public Component {
   // Remove a peer with the esp_now api and remove from the internal list if exists
   esp_err_t del_peer(const uint8_t *peer);
 
+  const std::vector<ESPNowPeer> &get_peers() const { return this->peers_; }
+
   void set_wifi_channel(uint8_t channel) { this->wifi_channel_ = channel; }
   void apply_wifi_channel();
   uint8_t get_wifi_channel();

@@ -18,6 +18,7 @@ class ESPNowTransport : public packet_transport::PacketTransport,
   float get_setup_priority() const override { return setup_priority::AFTER_WIFI; }
 
   void set_default_peer(const std::array<uint8_t, 6> &default_peer) { this->default_peer_ = default_peer; }
+  void set_use_broadcast(bool use_broadcast) { this->use_broadcast_ = use_broadcast; }
 
   // =================================================================
   // ESPNowReceivedPacketHandler virtual methods
@@ -41,6 +42,7 @@ class ESPNowTransport : public packet_transport::PacketTransport,
   size_t get_max_packet_size() override;
 
   std::array<uint8_t, 6> default_peer_{};
+  bool use_broadcast_{false};
 };
 
 }  // namespace espnow
