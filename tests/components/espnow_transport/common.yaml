@@ -1,3 +1,8 @@
+# This test configuration only checks if the espnow packet transport can be
+# configured and compiled successfully. It does not test the actual
+# functionality of the transport, as this would require a more complex setup
+# with two devices.
+
 esphome:
   name: test
 
