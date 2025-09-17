@@ -1,0 +1,25 @@
+esphome:
+  name: test
+
+esp32:
+  board: esp32dev
+
+wifi:
+  ssid: "dummy"
+  output_power: 20dB
+
+espnow:
+  id: espnow_hub
+
+packet_transport:
+  - platform: espnow
+    id: espnow_transport
+    espnow_id: espnow_hub
+
+sensor:
+  - platform: packet_transport
+    name: "ESPNow Test Sensor"
+    id: test_sensor
+    internal: true
+    transport_id: espnow_transport
+    provider: "test_provider"

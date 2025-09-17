@@ -1,0 +1,5 @@
+substitutions:
+  board: esp32-idf
+  framework_version: recommended
+
+<<: !include common.yaml
