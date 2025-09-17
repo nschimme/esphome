@@ -1,0 +1,26 @@
+substitutions:
+  name: "remote"
+
+esphome:
+  name: ${name}
+  platform: ESP32
+  board: nodemcu-32s
+
+logger:
+
+uart:
+  - id: uart_transport
+    tx_pin: GPIO1
+    rx_pin: GPIO3
+    baud_rate: 115200
+
+packet_transport:
+  platform: uart
+  id: pt
+  uart_id: uart_transport
+  forward_logs:
+    provider: "host"
+
+ota:
+  - platform: packet_transport_remote
+    packet_transport_id: pt
