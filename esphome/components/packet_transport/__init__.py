@@ -19,9 +19,10 @@ from esphome.const import (
 )
 from esphome.core import CORE
 from esphome.cpp_generator import MockObjClass
+from esphome.components import http_request
 
 CODEOWNERS = ["@clydebarrow"]
-AUTO_LOAD = ["xxtea"]
+AUTO_LOAD = ["xxtea", "http_request"]
 
 packet_transport_ns = cg.esphome_ns.namespace("packet_transport")
 PacketTransport = packet_transport_ns.class_("PacketTransport", cg.PollingComponent)
@@ -38,6 +39,7 @@ CONF_PING_PONG_ENABLE = "ping_pong_enable"
 CONF_PING_PONG_RECYCLE_TIME = "ping_pong_recycle_time"
 CONF_ROLLING_CODE_ENABLE = "rolling_code_enable"
 CONF_TRANSPORT_ID = "transport_id"
+CONF_PROXY_LOGS_TO = "proxy_logs_to"
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -76,9 +78,12 @@ ENCRYPTION_SCHEMA = {
     )
 }
 
+CONF_PROXY_LOGS = "proxy_logs"
+
 PROVIDER_SCHEMA = cv.Schema(
     {
         cv.Required(CONF_NAME): provider_name_validate,
+        cv.Optional(CONF_PROXY_LOGS, default=False): cv.boolean,
     }
 ).extend(ENCRYPTION_SCHEMA)
 
@@ -110,6 +115,8 @@ TRANSPORT_SCHEMA = (
                 sensor_validation(BinarySensor)
             ),
             cv.Optional(CONF_PROVIDERS, default=[]): cv.ensure_list(PROVIDER_SCHEMA),
+            cv.Optional(CONF_PROXY_LOGS_TO): cv.string,
+            cv.Optional("enable_remote_ota", default=False): cv.boolean,
         },
     )
     .extend(ENCRYPTION_SCHEMA)
@@ -178,6 +185,8 @@ async def register_packet_transport(var, config):
         name = provider[CONF_NAME]
         if encryption := provider.get(CONF_ENCRYPTION):
             cg.add(var.set_provider_encryption(name, hash_encryption_key(encryption)))
+        if provider.get(CONF_PROXY_LOGS):
+            cg.add(var.set_on_log(cg.RawLambda(f"[](const std::string &target, int level, const char *tag, const char *message) {{ ESP_LOG_LW(level, tag, \"[%s] %s\", target.c_str(), message); }}")))
 
     for sens_conf in config.get(CONF_SENSORS, ()):
         sens_id = sens_conf[CONF_ID]
@@ -192,6 +201,18 @@ async def register_packet_transport(var, config):
 
     if encryption := config.get(CONF_ENCRYPTION):
         cg.add(var.set_encryption_key(hash_encryption_key(encryption)))
+
+    if target := config.get(CONF_PROXY_LOGS_TO):
+        cg.add(cg.logger.get_global_logger().add_on_log_callback(cg.RawLambda(f"[](int level, const char *tag, const char *message) {{ {var}->send_log(\"{target}\", level, tag, message); }}")))
+
+    if config.get("enable_remote_ota"):
+        cg.add_library("Update", None)
+        ota_backend = cg.new_Pvariable("ota_backend", cg.RawExpression("ota::make_ota_backend()"))
+
+        cg.add(var.set_on_ota_begin(cg.RawLambda(f"[](const std::string &target, size_t size, const std::string &md5) {{ {ota_backend}->begin(size); {ota_backend}->set_update_md5(md5.c_str()); }}")))
+        cg.add(var.set_on_ota_data(cg.RawLambda(f"[](const std::string &target, const std::vector<uint8_t> &data) {{ {ota_backend}->write(const_cast<uint8_t*>(data.data()), data.size()); }}")))
+        cg.add(var.set_on_ota_end(cg.RawLambda(f"[](const std::string &target) {{ {ota_backend}->end(); }}")))
+
     return providers
 
 
@@ -200,3 +221,28 @@ async def new_packet_transport(config):
     cg.add(var.set_platform_name(config[CONF_PLATFORM]))
     providers = await register_packet_transport(var, config)
     return var, providers
+
+CONF_PROXY_OTA_SERVICE = "proxy_ota"
+CONF_URL = "url"
+CONF_TARGET = "target"
+
+AUTOMATION_SCHEMA = cv.Schema(
+    {
+        cv.GenerateID(CONF_ID): cv.use_id(PacketTransport),
+        cv.Required(CONF_URL): cv.templatable(cv.url),
+        cv.Required(CONF_TARGET): cv.templatable(cv.string),
+    }
+)
+
+@automation.register_action(f"{DOMAIN}.{CONF_PROXY_OTA_SERVICE}", automation.Action, AUTOMATION_SCHEMA)
+async def proxy_ota_to_code(config, action_id, template_arg, args):
+    paren = await cg.get_variable(config[CONF_ID])
+    var = cg.new_Pvariable(action_id, template_arg, paren)
+
+    url = await cg.templatable(config[CONF_URL], args, cg.std_string)
+    cg.add(var.set_url(url))
+
+    target = await cg.templatable(config[CONF_TARGET], args, cg.std_string)
+    cg.add(var.set_target(target))
+
+    return var

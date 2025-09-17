@@ -35,6 +35,33 @@ namespace packet_transport {
  *      name length: 1 byte
  *      name
  *
+ * Log message:
+ *      LOG_KEY: 1 byte
+ *      target length: 1 byte
+ *      target
+ *      level: 1 byte
+ *      tag length: 1 byte
+ *      tag
+ *      message length: 1 byte
+ *      message
+ *
+ * OTA Begin:
+ *      OTA_BEGIN_KEY: 1 byte
+ *      target length: 1 byte
+ *      target
+ *      size: 4 bytes
+ *      md5 length: 1 byte
+ *      md5
+ * OTA Data:
+ *      OTA_DATA_KEY: 1 byte
+ *      target length: 1 byte
+ *      target
+ *      data
+ * OTA End:
+ *      OTA_END_KEY: 1 byte
+ *      target length: 1 byte
+ *      target
+ *
  * Padded to a 4 byte boundary with nulls
  *
  * Structure of a ping request packet:
@@ -64,6 +91,10 @@ enum DataKey {
   BINARY_SENSOR_KEY,
   PING_KEY,
   ROLLING_CODE_KEY,
+  LOG_KEY,
+  OTA_BEGIN_KEY,
+  OTA_DATA_KEY,
+  OTA_END_KEY,
 };
 
 enum DecodeResult {
@@ -497,6 +528,49 @@ void PacketTransport::process_(const std::vector<uint8_t> &data) {
 #endif
       continue;
     }
+    char target[64];
+    if (decoder.decode(LOG_KEY) == DECODE_OK) {
+      if (this->on_log && decoder.decode_string(target, sizeof(target)) == DECODE_OK &&
+          strcmp(target, this->name_) == 0) {
+        uint8_t level;
+        char tag[32];
+        char msg[256];
+        if (decoder.get(level) == DECODE_OK && decoder.decode_string(tag, sizeof(tag)) == DECODE_OK &&
+            decoder.decode_string(msg, sizeof(msg)) == DECODE_OK) {
+          this->on_log(namebuf, level, tag, msg);
+        }
+      }
+      continue;
+    }
+    if (decoder.decode(OTA_BEGIN_KEY) == DECODE_OK) {
+      if (this->on_ota_begin && decoder.decode_string(target, sizeof(target)) == DECODE_OK &&
+          strcmp(target, this->name_) == 0) {
+        uint32_t size;
+        char md5[33];
+        if (decoder.get(size) == DECODE_OK && decoder.decode_string(md5, sizeof(md5)) == DECODE_OK) {
+          this->on_ota_begin(namebuf, size, md5);
+        }
+      }
+      continue;
+    }
+    if (decoder.decode(OTA_DATA_KEY) == DECODE_OK) {
+      if (this->on_ota_data && decoder.decode_string(target, sizeof(target)) == DECODE_OK &&
+          strcmp(target, this->name_) == 0) {
+        auto remaining = decoder.get_remaining_size();
+        std::vector<uint8_t> ota_data(remaining);
+        memcpy(ota_data.data(), data.data() + (data.size() - remaining), remaining);
+        this->on_ota_data(namebuf, ota_data);
+      }
+      continue;
+    }
+    if (decoder.decode(OTA_END_KEY) == DECODE_OK) {
+      if (this->on_ota_end && decoder.decode_string(target, sizeof(target)) == DECODE_OK &&
+          strcmp(target, this->name_) == 0) {
+        this->on_ota_end(namebuf);
+      }
+      continue;
+    }
+
     if (decoder.get(byte) == DECODE_OK) {
       ESP_LOGW(TAG, "Unknown key %X", byte);
       ESP_LOGD(TAG, "Buffer pos: %zu contents: %s", data.size() - decoder.get_remaining_size(),
@@ -564,6 +638,40 @@ void PacketTransport::send_ping_pong_request_() {
   this->send_packet(this->ping_header_);
   this->resend_ping_key_ = false;
   ESP_LOGV(TAG, "Sent new ping request %08X", (unsigned) this->ping_key_);
+}
+
+void PacketTransport::send_log(const std::string &target, int level, const char *tag, const char *message) {
+  this->init_data_();
+  add(this->data_, LOG_KEY);
+  add(this->data_, target.c_str());
+  add(this->data_, (uint8_t) level);
+  add(this->data_, tag);
+  add(this->data_, message);
+  this->flush_();
+}
+
+void PacketTransport::send_ota_begin(const std::string &target, size_t size, const std::string &md5) {
+  this->init_data_();
+  add(this->data_, OTA_BEGIN_KEY);
+  add(this->data_, target.c_str());
+  add(this->data_, (uint32_t) size);
+  add(this->data_, md5.c_str());
+  this->flush_();
+}
+
+void PacketTransport::send_ota_data(const std::string &target, const std::vector<uint8_t> &data) {
+  this->init_data_();
+  add(this->data_, OTA_DATA_KEY);
+  add(this->data_, target.c_str());
+  this->data_.insert(this->data_.end(), data.begin(), data.end());
+  this->flush_();
+}
+
+void PacketTransport::send_ota_end(const std::string &target) {
+  this->init_data_();
+  add(this->data_, OTA_END_KEY);
+  add(this->data_, target.c_str());
+  this->flush_();
 }
 }  // namespace packet_transport
 }  // namespace esphome

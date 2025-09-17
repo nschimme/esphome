@@ -105,6 +105,18 @@ class PacketTransport : public PollingComponent {
 #endif
   void set_platform_name(const char *name) { this->platform_name_ = name; }
 
+  // OTA
+  std::function<void(const std::string &, size_t, const std::string &)> on_ota_begin;
+  std::function<void(const std::string &, const std::vector<uint8_t> &)> on_ota_data;
+  std::function<void(const std::string &)> on_ota_end;
+  void send_ota_begin(const std::string &target, size_t size, const std::string &md5);
+  void send_ota_data(const std::string &target, const std::vector<uint8_t> &data);
+  void send_ota_end(const std::string &target);
+
+  // LOG
+  std::function<void(const std::string &target, int level, const char *tag, const char *message)> on_log;
+  void send_log(const std::string &target, int level, const char *tag, const char *message);
+
  protected:
   // child classes must implement this
   virtual void send_packet(const std::vector<uint8_t> &buf) const = 0;
