@@ -56,8 +56,10 @@ union FuData {
 
 static const uint16_t MAGIC_NUMBER = 0x4553;
 static const uint16_t MAGIC_PING = 0x5048;
+static const uint16_t MAGIC_OTA = 0x4F54;
 static const uint32_t PREF_HASH = 0x45535043;
 enum DataKey {
+  OTA_KEY,
   ZERO_FILL_KEY,
   DATA_KEY,
   SENSOR_KEY,
@@ -396,6 +398,15 @@ void PacketTransport::process_(const std::vector<uint8_t> &data) {
     ESP_LOGD(TAG, "Short buffer");
     return;
   }
+  if (magic == MAGIC_OTA) {
+#ifdef USE_OTA
+    if (this->ota_component_ != nullptr) {
+      std::vector<uint8_t> ota_data(data.begin() + 2, data.end());
+      this->ota_component_->handle_ota_packet(ota_data);
+    }
+#endif
+    return;
+  }
   if (magic != MAGIC_NUMBER && magic != MAGIC_PING) {
     ESP_LOGV(TAG, "Bad magic %X", magic);
     return;
@@ -565,5 +576,15 @@ void PacketTransport::send_ping_pong_request_() {
   this->resend_ping_key_ = false;
   ESP_LOGV(TAG, "Sent new ping request %08X", (unsigned) this->ping_key_);
 }
+
+#ifdef USE_OTA
+void PacketTransport::send_ota_packet(const std::vector<uint8_t> &buf) {
+  std::vector<uint8_t> packet;
+  add(packet, MAGIC_OTA);
+  packet.insert(packet.end(), buf.begin(), buf.end());
+  this->send_packet(packet);
+}
+#endif
+
 }  // namespace packet_transport
 }  // namespace esphome

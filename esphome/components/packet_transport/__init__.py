@@ -8,10 +8,15 @@ from esphome.components.api import CONF_ENCRYPTION
 from esphome.components.binary_sensor import BinarySensor
 from esphome.components.sensor import Sensor
 import esphome.config_validation as cv
+from esphome.components.packet_transport.ota import (
+    CONFIG_SCHEMA as OTA_SCHEMA,
+    PacketTransportOTAComponent,
+)
 from esphome.const import (
     CONF_BINARY_SENSORS,
     CONF_ID,
     CONF_INTERNAL,
+    CONF_OTA,
     CONF_KEY,
     CONF_NAME,
     CONF_PLATFORM,
@@ -110,6 +115,7 @@ TRANSPORT_SCHEMA = (
                 sensor_validation(BinarySensor)
             ),
             cv.Optional(CONF_PROVIDERS, default=[]): cv.ensure_list(PROVIDER_SCHEMA),
+            cv.Optional(CONF_OTA): OTA_SCHEMA,
         },
     )
     .extend(ENCRYPTION_SCHEMA)
@@ -192,6 +198,16 @@ async def register_packet_transport(var, config):
 
     if encryption := config.get(CONF_ENCRYPTION):
         cg.add(var.set_encryption_key(hash_encryption_key(encryption)))
+
+    if CONF_OTA in config:
+        ota_config = config[CONF_OTA]
+        ota_var = cg.new_P(ota_config[CONF_ID])
+        await cg.register_component(ota_var, ota_config)
+        from esphome.components import ota
+        await ota.ota_to_code(ota_var, ota_config)
+        cg.add(var.set_ota_component(ota_var))
+        cg.add_build_flag("-DUSE_OTA")
+
     return providers
 
 

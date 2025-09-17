@@ -1,0 +1,58 @@
+# test_ota.yaml
+
+# Host device configuration
+---
+substitutions:
+  device_name: host
+
+esphome:
+  name: ${device_name}
+
+esp32:
+  board: nodemcu-32s
+
+logger:
+
+web_server:
+
+uart:
+  id: uart_bus
+  tx_pin: 17
+  rx_pin: 16
+  baud_rate: 115200
+
+packet_transport:
+  id: uart_transport
+  platform: uart
+  uart_id: uart_bus
+
+packet_transport_proxy:
+  packet_transport_id: uart_transport
+
+ota:
+  platform: web_server
+
+# Target device configuration
+---
+substitutions:
+  device_name: target
+
+esphome:
+  name: ${device_name}
+
+esp32:
+  board: nodemcu-32s
+
+logger:
+
+uart:
+  id: uart_bus
+  tx_pin: 17
+  rx_pin: 16
+  baud_rate: 115200
+
+packet_transport:
+  platform: uart
+  uart_id: uart_bus
+  ota:
+    id: ota_component

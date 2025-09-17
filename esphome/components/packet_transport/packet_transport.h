@@ -8,6 +8,9 @@
 #ifdef USE_BINARY_SENSOR
 #include "esphome/components/binary_sensor/binary_sensor.h"
 #endif
+#ifdef USE_OTA
+#include "esphome/components/packet_transport/ota/ota_packet_transport.h"
+#endif
 
 #include <vector>
 #include <map>
@@ -105,6 +108,11 @@ class PacketTransport : public PollingComponent {
 #endif
   void set_platform_name(const char *name) { this->platform_name_ = name; }
 
+#ifdef USE_OTA
+  void set_ota_component(PacketTransportOTAComponent *ota_component) { this->ota_component_ = ota_component; }
+  void send_ota_packet(const std::vector<uint8_t> &buf);
+#endif
+
  protected:
   // child classes must implement this
   virtual void send_packet(const std::vector<uint8_t> &buf) const = 0;
@@ -150,6 +158,9 @@ class PacketTransport : public PollingComponent {
   std::vector<uint8_t> data_{};
   std::map<const char *, uint32_t> ping_keys_{};
   const char *platform_name_{""};
+#ifdef USE_OTA
+  PacketTransportOTAComponent *ota_component_{nullptr};
+#endif
   void add_key_(const char *name, uint32_t key);
   void send_ping_pong_request_();
 
