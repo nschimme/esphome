@@ -21,7 +21,7 @@ from esphome.core import CORE
 from esphome.cpp_generator import MockObjClass
 
 CODEOWNERS = ["@clydebarrow"]
-AUTO_LOAD = ["xxtea"]
+AUTO_LOAD = ["xxtea", "ota"]
 
 packet_transport_ns = cg.esphome_ns.namespace("packet_transport")
 PacketTransport = packet_transport_ns.class_("PacketTransport", cg.PollingComponent)
@@ -110,6 +110,12 @@ TRANSPORT_SCHEMA = (
                 sensor_validation(BinarySensor)
             ),
             cv.Optional(CONF_PROVIDERS, default=[]): cv.ensure_list(PROVIDER_SCHEMA),
+            cv.Optional("forward_logs"): cv.Schema(
+                {
+                    cv.Required("provider"): cv.string,
+                }
+            ),
+            cv.Optional("receive_logs", default=False): cv.boolean,
         },
     )
     .extend(ENCRYPTION_SCHEMA)
@@ -172,6 +178,8 @@ async def register_packet_transport(var, config):
     providers = {
         sensor[CONF_PROVIDER] for sensor in get_sensors(config[CONF_ID])
     }.union(x[CONF_NAME] for x in config[CONF_PROVIDERS])
+    if "forward_logs" in config:
+        providers.add(config["forward_logs"]["provider"])
     for provider in providers:
         cg.add(var.add_provider(provider))
     for provider in config[CONF_PROVIDERS]:
@@ -192,6 +200,13 @@ async def register_packet_transport(var, config):
 
     if encryption := config.get(CONF_ENCRYPTION):
         cg.add(var.set_encryption_key(hash_encryption_key(encryption)))
+
+    if "forward_logs" in config:
+        cg.add(var.set_log_provider(config["forward_logs"]["provider"]))
+
+    if config["receive_logs"]:
+        cg.add(var.set_receive_logs(True))
+
     return providers
 
 

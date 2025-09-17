@@ -103,7 +103,28 @@ class PacketTransport : public PollingComponent {
     this->providers_[name].status_sensor = sensor;
   }
 #endif
+  void set_ota_backend(ota::OTABackend *ota_backend) { this->ota_backend_ = ota_backend; }
+  void set_log_provider(const char *log_provider) { this->log_provider_ = log_provider; }
+  void set_receive_logs(bool receive_logs) { this->receive_logs_ = receive_logs; }
   void set_platform_name(const char *name) { this->platform_name_ = name; }
+
+  void send_ota_begin(const char *provider, size_t size, const char *md5);
+  void send_ota_data(const char *provider, const std::vector<uint8_t> &data);
+  void send_ota_end(const char *provider);
+  void send_log_message(const char *provider, int level, const char *tag, const char *message);
+
+  void add_on_ota_begin_callback(std::function<void(const char *, size_t, const char *)> &&callback) {
+    this->ota_begin_callback_.add(std::move(callback));
+  }
+  void add_on_ota_data_callback(std::function<void(const char *, const std::vector<uint8_t> &)> &&callback) {
+    this->ota_data_callback_.add(std::move(callback));
+  }
+  void add_on_ota_end_callback(std::function<void(const char *)> &&callback) {
+    this->ota_end_callback_.add(std::move(callback));
+  }
+  void add_on_log_message_callback(std::function<void(const char *, int, const char *, const char *)> &&callback) {
+    this->log_message_callback_.add(std::move(callback));
+  }
 
  protected:
   // child classes must implement this
@@ -154,6 +175,14 @@ class PacketTransport : public PollingComponent {
   void send_ping_pong_request_();
 
   inline bool is_encrypted_() { return !this->encryption_key_.empty(); }
+
+  CallbackManager<void(const char *, size_t, const char *)> ota_begin_callback_{};
+  CallbackManager<void(const char *, const std::vector<uint8_t> &)> ota_data_callback_{};
+  CallbackManager<void(const char *)> ota_end_callback_{};
+  CallbackManager<void(const char *, int, const char *, const char *)> log_message_callback_{};
+  ota::OTABackend *ota_backend_{nullptr};
+  const char *log_provider_{nullptr};
+  bool receive_logs_{false};
 };
 
 }  // namespace packet_transport

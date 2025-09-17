@@ -64,6 +64,10 @@ enum DataKey {
   BINARY_SENSOR_KEY,
   PING_KEY,
   ROLLING_CODE_KEY,
+  OTA_BEGIN_KEY,
+  OTA_DATA_KEY,
+  OTA_END_KEY,
+  LOG_MESSAGE_KEY,
 };
 
 enum DecodeResult {
@@ -107,6 +111,14 @@ class PacketDecoder {
       value += this->buffer_[this->position_++] << (i * 8);
     }
     data = value;
+    return DECODE_OK;
+  }
+
+  DecodeResult get_raw(uint8_t *data, size_t len) {
+    if (this->position_ + len > this->len_)
+      return DECODE_ERROR;
+    memcpy(data, this->buffer_ + this->position_, len);
+    this->position_ += len;
     return DECODE_OK;
   }
 
@@ -192,6 +204,8 @@ static void add(std::vector<uint8_t> &vec, const char *str) {
   }
 }
 
+#include "esphome/components/logger/logger.h"
+
 void PacketTransport::setup() {
   this->name_ = App.get_name().c_str();
   if (strlen(this->name_) > 255) {
@@ -201,6 +215,18 @@ void PacketTransport::setup() {
   }
   this->resend_ping_key_ = this->ping_pong_enable_;
   this->pref_ = global_preferences->make_preference<uint32_t>(PREF_HASH, true);
+  if (this->log_provider_ != nullptr) {
+    logger::global_logger->add_on_log_callback(
+        [this](int level, const char *tag, const char *message, size_t len) {
+          this->send_log_message(this->log_provider_, level, tag, message);
+        });
+  }
+  if (this->receive_logs_) {
+    this->add_on_log_message_callback(
+        [](const char *provider, int level, const char *tag, const char *message) {
+          logger::global_logger->log_vprintf_(level, tag, 0, message);
+        });
+  }
   if (this->rolling_code_enable_) {
     // restore the upper 32 bits of the rolling code, increment and save.
     this->pref_.load(&this->rolling_code_[1]);
@@ -497,6 +523,53 @@ void PacketTransport::process_(const std::vector<uint8_t> &data) {
 #endif
       continue;
     }
+    if (decoder.decode(OTA_BEGIN_KEY) == DECODE_OK) {
+      uint32_t size;
+      char md5[33];
+      if (decoder.get(size) != DECODE_OK || decoder.decode_string(md5, sizeof(md5)) != DECODE_OK) {
+        ESP_LOGW(TAG, "Bad OTA begin packet");
+        break;
+      }
+      if (this->ota_backend_ != nullptr) {
+        this->ota_backend_->begin(size);
+        this->ota_backend_->set_update_md5(md5);
+      }
+      this->ota_begin_callback_.call(namebuf, size, md5);
+      continue;
+    }
+    if (decoder.decode(OTA_DATA_KEY) == DECODE_OK) {
+      std::vector<uint8_t> ota_data;
+      ota_data.resize(decoder.get_remaining_size());
+      uint8_t *data_ptr = ota_data.data();
+      if (decoder.get_raw(data_ptr, ota_data.size()) != DECODE_OK) {
+        ESP_LOGW(TAG, "Bad OTA data packet");
+        break;
+      }
+      if (this->ota_backend_ != nullptr) {
+        this->ota_backend_->write(data_ptr, ota_data.size());
+      }
+      this->ota_data_callback_.call(namebuf, ota_data);
+      continue;
+    }
+    if (decoder.decode(OTA_END_KEY) == DECODE_OK) {
+      if (this->ota_backend_ != nullptr) {
+        this->ota_backend_->end();
+      }
+      this->ota_end_callback_.call(namebuf);
+      continue;
+    }
+    if (decoder.decode(LOG_MESSAGE_KEY) == DECODE_OK) {
+      uint8_t level;
+      char tag[32];
+      char message[256];
+      if (decoder.get(level) != DECODE_OK || decoder.decode_string(tag, sizeof(tag)) != DECODE_OK ||
+          decoder.decode_string(message, sizeof(message)) != DECODE_OK) {
+        ESP_LOGW(TAG, "Bad log message packet");
+        break;
+      }
+      this->log_message_callback_.call(namebuf, level, tag, message);
+      continue;
+    }
     if (decoder.get(byte) == DECODE_OK) {
       ESP_LOGW(TAG, "Unknown key %X", byte);
       ESP_LOGD(TAG, "Buffer pos: %zu contents: %s", data.size() - decoder.get_remaining_size(),
@@ -565,5 +638,36 @@ void PacketTransport::send_ping_pong_request_() {
   this->resend_ping_key_ = false;
   ESP_LOGV(TAG, "Sent new ping request %08X", (unsigned) this->ping_key_);
 }
+
+void PacketTransport::send_ota_begin(const char *provider, size_t size, const char *md5) {
+  this->init_data_();
+  add(this->data_, OTA_BEGIN_KEY);
+  add(this->data_, (uint32_t) size);
+  add(this->data_, md5);
+  this->flush_();
+}
+
+void PacketTransport::send_ota_data(const char *provider, const std::vector<uint8_t> &data) {
+  this->init_data_();
+  add(this->data_, OTA_DATA_KEY);
+  this->data_.insert(this->data_.end(), data.begin(), data.end());
+  this->flush_();
+}
+
+void PacketTransport::send_ota_end(const char *provider) {
+  this->init_data_();
+  add(this->data_, OTA_END_KEY);
+  this->flush_();
+}
+
+void PacketTransport::send_log_message(const char *provider, int level, const char *tag, const char *message) {
+  this->init_data_();
+  add(this->data_, LOG_MESSAGE_KEY);
+  add(this->data_, (uint8_t) level);
+  add(this->data_, tag);
+  add(this->data_, message);
+  this->flush_();
+}
+
 }  // namespace packet_transport
 }  // namespace esphome
