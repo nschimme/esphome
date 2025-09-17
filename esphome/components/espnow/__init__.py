@@ -1,3 +1,7 @@
+"""
+The ESPNow component allows sending and receiving data over ESP-Now.
+"""
+
 from esphome import automation, core
 import esphome.codegen as cg
 from esphome.components import wifi
@@ -118,6 +122,7 @@ async def to_code(config):
     await cg.register_component(var, config)
 
     if CORE.using_arduino:
+        cg.add_library("Networking", None)
         cg.add_library("WiFi", None)
 
     cg.add_define("USE_ESPNOW")

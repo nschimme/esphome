@@ -9,12 +9,9 @@ esphome:
 esp32:
   board: esp32dev
 
-wifi:
-  ssid: "dummy"
-  output_power: 20dB
-
 espnow:
   id: espnow_hub
+  channel: 1
 
 packet_transport:
   - platform: espnow
