@@ -86,7 +86,17 @@ void on_data_received_esp32(const esp_now_recv_info_t *info, const uint8_t *data
   }
 }
 
-espnow_err_t ESPNowAPI_ESP32::init() { return esp_now_init(); }
+espnow_err_t ESPNowAPI_ESP32::init() {
+  esp_event_loop_create_default();
+  wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+  esp_wifi_init(&cfg);
+  esp_wifi_set_mode(WIFI_MODE_STA);
+  esp_wifi_set_storage(WIFI_STORAGE_RAM);
+  esp_wifi_set_ps(WIFI_PS_NONE);
+  esp_wifi_start();
+  esp_wifi_disconnect();
+  return esp_now_init();
+}
 espnow_err_t ESPNowAPI_ESP32::deinit() { return esp_now_deinit(); }
 espnow_err_t ESPNowAPI_ESP32::add_peer(const esp_now_peer_info_t *peer) {
   return esp_now_add_peer(peer);
@@ -113,7 +123,11 @@ uint8_t ESPNowAPI_ESP32::get_wifi_channel() {
   esp_wifi_get_channel(&channel, &second);
   return channel;
 }
-void ESPNowAPI_ESP32::set_wifi_channel(uint8_t channel) { esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE); }
+void ESPNowAPI_ESP32::set_wifi_channel(uint8_t channel) {
+  esp_wifi_set_promiscuous(true);
+  esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
+  esp_wifi_set_promiscuous(false);
+}
 void ESPNowAPI_ESP32::get_mac(uint8_t *mac) { esp_wifi_get_mac(WIFI_IF_STA, mac); }
 void ESPNowAPI_ESP32::get_version(uint32_t &version) { esp_now_get_version(&version); }
 #endif
