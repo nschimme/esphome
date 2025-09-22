@@ -1,0 +1,14 @@
+espnow:
+  id: espnow_hub
+
+packet_transport:
+  - platform: espnow
+    id: espnow_transport
+    espnow_id: espnow_hub
+
+binary_sensor:
+  - platform: packet_transport
+    transport_id: espnow_transport
+    provider: "11:22:33:44:55:66"
+    remote_id: "door_sensor"
+    name: "Front Door Sensor"

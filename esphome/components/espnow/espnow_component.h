@@ -144,6 +144,8 @@ class ESPNowComponent : public Component {
     this->broadcasted_handlers_.push_back(handler);
   }
 
+  const std::vector<ESPNowPeer> &get_peers() const { return this->peers_; }
+
  protected:
   friend void on_data_received(const esp_now_recv_info_t *info, const uint8_t *data, int size);
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
