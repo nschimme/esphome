@@ -3,9 +3,57 @@
 #if defined(USE_ESP32) || defined(USE_ESP8266)
 
 #include "esphome/core/log.h"
+#include "esphome/core/helpers.h"
 
 namespace esphome {
 namespace espnow {
+
+const LogString *ESPNowAPI::espnow_error_to_str(espnow_err_t error) {
+  switch (error) {
+    case ESP_ERR_ESPNOW_FAILED:
+      return LOG_STR("ESPNow is in fail mode");
+    case ESP_ERR_ESPNOW_OWN_ADDRESS:
+      return LOG_STR("Message to your self");
+    case ESP_ERR_ESPNOW_DATA_SIZE:
+      return LOG_STR("Data size to large");
+    case ESP_ERR_ESPNOW_PEER_NOT_SET:
+      return LOG_STR("Peer address not set");
+    case ESP_ERR_ESPNOW_PEER_NOT_PAIRED:
+      return LOG_STR("Peer address not paired");
+    case ESP_ERR_ESPNOW_NOT_INIT:
+      return LOG_STR("Not init");
+    case ESP_ERR_ESPNOW_ARG:
+      return LOG_STR("Invalid argument");
+    case ESP_ERR_ESPNOW_INTERNAL:
+      return LOG_STR("Internal Error");
+    case ESP_ERR_ESPNOW_NO_MEM:
+      return LOG_STR("Our of memory");
+    case ESP_ERR_ESPNOW_NOT_FOUND:
+      return LOG_STR("Peer not found");
+    case ESP_ERR_ESPNOW_IF:
+      return LOG_STR("Interface does not match");
+    case ESP_OK:
+      return LOG_STR("OK");
+    case ESP_FAIL:
+      return LOG_STR("Failed");
+    default:
+      return LOG_STR("Unknown Error");
+  }
+}
+
+std::string ESPNowAPI::peer_str(uint8_t *peer) {
+  if (peer == nullptr || peer[0] == 0) {
+    return "[Not Set]";
+  } else if (memcmp(peer, ESPNOW_BROADCAST_ADDR, ESP_NOW_ETH_ALEN) == 0) {
+    return "[Broadcast]";
+#ifdef USE_ESP32
+  } else if (memcmp(peer, ESPNOW_MULTICAST_ADDR, ESP_NOW_ETH_ALEN) == 0) {
+    return "[Multicast]";
+#endif
+  } else {
+    return format_mac_address_pretty(peer);
+  }
+}
 
 #ifdef USE_ESP32
 static void (*recv_cb_esp32)(const ESPNowRecvInfo &info, const uint8_t *data, int size) = nullptr;
@@ -67,6 +115,7 @@ uint8_t ESPNowAPI_ESP32::get_wifi_channel() {
 }
 void ESPNowAPI_ESP32::set_wifi_channel(uint8_t channel) { esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE); }
 void ESPNowAPI_ESP32::get_mac(uint8_t *mac) { esp_wifi_get_mac(WIFI_IF_STA, mac); }
+void ESPNowAPI_ESP32::get_version(uint32_t &version) { esp_now_get_version(&version); }
 #endif
 
 #ifdef USE_ESP8266
@@ -162,6 +211,10 @@ void ESPNowAPI_ESP8266::set_wifi_channel(uint8_t channel) {
 void ESPNowAPI_ESP8266::get_mac(uint8_t *mac) {
   // esp_wifi_get_mac is not available on ESP8266, use WiFi.macAddress()
   WiFi.macAddress(mac);
+}
+void ESPNowAPI_ESP8266::get_version(uint32_t &version) {
+  // esp_now_get_version is not available on ESP8266
+  version = 0;
 }
 #endif
 

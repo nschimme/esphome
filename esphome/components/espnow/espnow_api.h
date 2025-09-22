@@ -31,6 +31,10 @@ class ESPNowAPI {
   virtual uint8_t get_wifi_channel() = 0;
   virtual void set_wifi_channel(uint8_t channel) = 0;
   virtual void get_mac(uint8_t *mac) = 0;
+  virtual void get_version(uint32_t &version) = 0;
+
+  static const LogString *espnow_error_to_str(espnow_err_t error);
+  static std::string peer_str(uint8_t *peer);
 };
 
 #ifdef USE_ESP32
@@ -46,6 +50,7 @@ class ESPNowAPI_ESP32 : public ESPNowAPI {
   uint8_t get_wifi_channel() override;
   void set_wifi_channel(uint8_t channel) override;
   void get_mac(uint8_t *mac) override;
+  void get_version(uint32_t &version) override;
 };
 #endif
 
@@ -62,6 +67,7 @@ class ESPNowAPI_ESP8266 : public ESPNowAPI {
   uint8_t get_wifi_channel() override;
   void set_wifi_channel(uint8_t channel) override;
   void get_mac(uint8_t *mac) override;
+  void get_version(uint32_t &version) override;
 };
 #endif
 

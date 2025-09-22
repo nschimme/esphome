@@ -14,52 +14,6 @@ namespace espnow {
 static constexpr const char *TAG = "espnow";
 ESPNowComponent *global_esp_now = nullptr;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
-static const LogString *espnow_error_to_str(espnow_err_t error) {
-  switch (error) {
-    case ESP_ERR_ESPNOW_FAILED:
-      return LOG_STR("ESPNow is in fail mode");
-    case ESP_ERR_ESPNOW_OWN_ADDRESS:
-      return LOG_STR("Message to your self");
-    case ESP_ERR_ESPNOW_DATA_SIZE:
-      return LOG_STR("Data size to large");
-    case ESP_ERR_ESPNOW_PEER_NOT_SET:
-      return LOG_STR("Peer address not set");
-    case ESP_ERR_ESPNOW_PEER_NOT_PAIRED:
-      return LOG_STR("Peer address not paired");
-    case ESP_ERR_ESPNOW_NOT_INIT:
-      return LOG_STR("Not init");
-    case ESP_ERR_ESPNOW_ARG:
-      return LOG_STR("Invalid argument");
-    case ESP_ERR_ESPNOW_INTERNAL:
-      return LOG_STR("Internal Error");
-    case ESP_ERR_ESPNOW_NO_MEM:
-      return LOG_STR("Our of memory");
-    case ESP_ERR_ESPNOW_NOT_FOUND:
-      return LOG_STR("Peer not found");
-    case ESP_ERR_ESPNOW_IF:
-      return LOG_STR("Interface does not match");
-    case ESP_OK:
-      return LOG_STR("OK");
-    case ESP_FAIL:
-      return LOG_STR("Failed");
-    default:
-      return LOG_STR("Unknown Error");
-  }
-}
-
-std::string peer_str(uint8_t *peer) {
-  if (peer == nullptr || peer[0] == 0) {
-    return "[Not Set]";
-  } else if (memcmp(peer, ESPNOW_BROADCAST_ADDR, ESP_NOW_ETH_ALEN) == 0) {
-    return "[Broadcast]";
-#ifdef USE_ESP32
-  } else if (memcmp(peer, ESPNOW_MULTICAST_ADDR, ESP_NOW_ETH_ALEN) == 0) {
-    return "[Multicast]";
-#endif
-  } else {
-    return format_mac_address_pretty(peer);
-  }
-}
 
 bool ESPNowComponent::is_peer_exist(const uint8_t *peer_addr) {
   for (auto &it : this->peers_) {
@@ -109,11 +63,15 @@ void ESPNowComponent::dump_config() {
   }
   uint8_t mac[6];
   this->api_->get_mac(mac);
+  uint32_t version;
+  this->api_->get_version(version);
   ESP_LOGCONFIG(TAG,
                 "  Own address: %s
 "
+                "  Version: %u
+"
                 "  Wi-Fi channel: %d",
-                format_mac_address_pretty(mac).c_str(), this->wifi_channel_);
+                format_mac_address_pretty(mac).c_str(), version, this->wifi_channel_);
 #ifdef USE_WIFI
   ESP_LOGCONFIG(TAG, "  Wi-Fi enabled: %s", YESNO(this->is_wifi_enabled()));
 #endif
@@ -263,7 +221,7 @@ void ESPNowComponent::loop() {
       case ESPNowPacket::SENT: {
 #if ESPHOME_LOG_LEVEL >= ESPHOME_LOG_LEVEL_VERBOSE
         ESP_LOGV(TAG, ">>> [%s] %s", format_mac_address_pretty(packet->packet_.sent.address).c_str(),
-                 LOG_STR_ARG(espnow_error_to_str(packet->packet_.sent.status)));
+                 LOG_STR_ARG(ESPNowAPI::espnow_error_to_str(packet->packet_.sent.status)));
 #endif
         if (this->current_send_packet_ != nullptr) {
           this->current_send_packet_->callback_(packet->packet_.sent.status);
