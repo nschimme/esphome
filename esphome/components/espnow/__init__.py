@@ -93,7 +93,9 @@ CONFIG_SCHEMA = cv.All(
             ),
         },
     ).extend(cv.COMPONENT_SCHEMA),
-    cv.only_on_esp32,
+    cv.only_on(
+        ["esp32", "esp8266"]
+    ),  # TODO: Add support for other platforms
 )
 
 
@@ -117,10 +119,11 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
 
-    if CORE.using_arduino:
+    if CORE.is_esp32:
         cg.add_library("WiFi", None)
+    elif CORE.is_esp8266:
+        cg.add_library("ESP8266WiFi", None)
 
-    cg.add_define("USE_ESPNOW")
     if wifi_channel := config.get(CONF_CHANNEL):
         cg.add(var.set_wifi_channel(wifi_channel))
 
