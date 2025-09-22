@@ -1,0 +1,180 @@
+#include "espnow_api.h"
+
+#if defined(USE_ESP32) || defined(USE_ESP8266)
+
+#include "esphome/core/log.h"
+
+namespace esphome {
+namespace espnow {
+
+#ifdef USE_ESP32
+static void (*recv_cb_esp32)(const ESPNowRecvInfo &info, const uint8_t *data, int size) = nullptr;
+static void *recv_cb_arg_esp32 = nullptr;
+static void (*send_cb_esp32)(const uint8_t *mac_addr, esp_now_send_status_t status) = nullptr;
+static void *send_cb_arg_esp32 = nullptr;
+
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
+void on_send_report_esp32(const esp_now_send_info_t *info, esp_now_send_status_t status) {
+  if (send_cb_esp32 != nullptr) {
+    send_cb_esp32(info->des_addr, status);
+  }
+}
+#else
+void on_send_report_esp32(const uint8_t *mac_addr, esp_now_send_status_t status) {
+  if (send_cb_esp32 != nullptr) {
+    send_cb_esp32(mac_addr, status);
+  }
+}
+#endif
+
+void on_data_received_esp32(const esp_now_recv_info_t *info, const uint8_t *data, int size) {
+  if (recv_cb_esp32 != nullptr) {
+    ESPNowRecvInfo recv_info;
+    memcpy(recv_info.src_addr, info->src_addr, ESP_NOW_ETH_ALEN);
+    memcpy(recv_info.des_addr, info->des_addr, ESP_NOW_ETH_ALEN);
+    recv_info.rx_ctrl.rssi = info->rx_ctrl->rssi;
+    recv_info.rx_ctrl.timestamp = info->rx_ctrl->timestamp;
+    recv_cb_esp32(recv_info, data, size);
+  }
+}
+
+espnow_err_t ESPNowAPI_ESP32::init() { return esp_now_init(); }
+espnow_err_t ESPNowAPI_ESP32::deinit() { return esp_now_deinit(); }
+espnow_err_t ESPNowAPI_ESP32::add_peer(const uint8_t *peer_addr, uint8_t channel) {
+  esp_now_peer_info_t peer_info = {};
+  memset(&peer_info, 0, sizeof(esp_now_peer_info_t));
+  peer_info.ifidx = WIFI_IF_STA;
+  memcpy(peer_info.peer_addr, peer_addr, ESP_NOW_ETH_ALEN);
+  return esp_now_add_peer(&peer_info);
+}
+espnow_err_t ESPNowAPI_ESP32::del_peer(const uint8_t *peer_addr) { return esp_now_del_peer(peer_addr); }
+espnow_err_t ESPNowAPI_ESP32::send(const uint8_t *peer_addr, const uint8_t *data, size_t len) {
+  return esp_now_send(peer_addr, data, len);
+}
+espnow_err_t ESPNowAPI_ESP32::register_recv_cb(void (*cb)(const ESPNowRecvInfo &info, const uint8_t *data, int size),
+                                             void *arg) {
+  recv_cb_esp32 = cb;
+  recv_cb_arg_esp32 = arg;
+  return esp_now_register_recv_cb(on_data_received_esp32);
+}
+espnow_err_t ESPNowAPI_ESP32::register_send_cb(void (*cb)(const uint8_t *mac_addr, esp_now_send_status_t status),
+                                             void *arg) {
+  send_cb_esp32 = cb;
+  send_cb_arg_esp32 = arg;
+  return esp_now_register_send_cb(on_send_report_esp32);
+}
+uint8_t ESPNowAPI_ESP32::get_wifi_channel() {
+  uint8_t channel;
+  wifi_second_chan_t second;
+  esp_wifi_get_channel(&channel, &second);
+  return channel;
+}
+void ESPNowAPI_ESP32::set_wifi_channel(uint8_t channel) { esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE); }
+void ESPNowAPI_ESP32::get_mac(uint8_t *mac) { esp_wifi_get_mac(WIFI_IF_STA, mac); }
+#endif
+
+#ifdef USE_ESP8266
+static void (*recv_cb_esp8266)(const ESPNowRecvInfo &info, const uint8_t *data, int size) = nullptr;
+static void *recv_cb_arg_esp8266 = nullptr;
+static void (*send_cb_esp8266)(const uint8_t *mac_addr, esp_now_send_status_t status) = nullptr;
+static void *send_cb_arg_esp8266 = nullptr;
+static int8_t last_rssi = 0;
+
+struct ieee80211_frame {
+    uint8_t frame_control[2];
+    uint8_t duration_id[2];
+    uint8_t addr1[6];
+    uint8_t addr2[6];
+    uint8_t addr3[6];
+    uint8_t seq_ctrl[2];
+    uint8_t addr4[6];
+    uint8_t payload[0];
+};
+
+struct wifi_promiscuous_pkt_t {
+    wifi_pkt_rx_ctrl_t rx_ctrl;
+    uint8_t payload[0];
+};
+
+void promiscuous_rx_cb(uint8_t *buf, uint16_t len) {
+  if (len < sizeof(wifi_promiscuous_pkt_t) + sizeof(ieee80211_frame)) {
+    return;
+  }
+  wifi_promiscuous_pkt_t *pkt = (wifi_promiscuous_pkt_t *) buf;
+  ieee80211_frame *frame = (ieee80211_frame *) pkt->payload;
+  // check for espnow packet
+  if (frame->frame_control[0] == 0xd0 && frame->frame_control[1] == 0x00) {
+    last_rssi = pkt->rx_ctrl.rssi;
+  }
+}
+
+void on_data_received_esp8266(uint8_t *mac_addr, uint8_t *data, uint8_t len) {
+  if (recv_cb_esp8266 != nullptr) {
+    ESPNowRecvInfo recv_info;
+    memcpy(recv_info.src_addr, mac_addr, ESP_NOW_ETH_ALEN);
+    memcpy(recv_info.des_addr, ESPNOW_BROADCAST_ADDR, ESP_NOW_ETH_ALEN);
+    recv_info.rx_ctrl.rssi = last_rssi;
+    recv_cb_esp8266(recv_info, data, len);
+  }
+}
+
+void on_send_report_esp8266(uint8_t *mac_addr, uint8_t status) {
+  if (send_cb_esp8266 != nullptr) {
+    send_cb_esp8266(mac_addr, (esp_now_send_status_t) status);
+  }
+}
+
+espnow_err_t ESPNowAPI_ESP8266::init() {
+  wifi_set_promiscuous_rx_cb(promiscuous_rx_cb);
+  wifi_set_promiscuous(true);
+  return esp_now_init();
+}
+espnow_err_t ESPNowAPI_ESP8266::deinit() {
+  wifi_set_promiscuous(false);
+  // esp_now_unregister_recv_cb and esp_now_unregister_send_cb are not available on ESP8266
+  // esp_now_deinit will unregister them
+  esp_now_deinit();
+  return ESP_OK;
+}
+espnow_err_t ESPNowAPI_ESP8266::add_peer(const uint8_t *peer_addr, uint8_t channel) {
+  return esp_now_add_peer(const_cast<uint8_t *>(peer_addr), ESP_NOW_ROLE_COMBO, channel, nullptr, 0);
+}
+espnow_err_t ESPNowAPI_ESP8266::del_peer(const uint8_t *peer_addr) {
+  return esp_now_del_peer(const_cast<uint8_t *>(peer_addr));
+}
+espnow_err_t ESPNowAPI_ESP8266::send(const uint8_t *peer_addr, const uint8_t *data, size_t len) {
+  if (memcmp(peer_addr, ESPNOW_BROADCAST_ADDR, ESP_NOW_ETH_ALEN) == 0) {
+    for (auto &it : global_esp_now->get_peers()) {
+      esp_now_send(it.address, const_cast<uint8_t *>(data), len);
+    }
+    return ESP_OK;
+  }
+  return esp_now_send(const_cast<uint8_t *>(peer_addr), const_cast<uint8_t *>(data), len);
+}
+espnow_err_t ESPNowAPI_ESP8266::register_recv_cb(void (*cb)(const ESPNowRecvInfo &info, const uint8_t *data, int size),
+                                               void *arg) {
+  recv_cb_esp8266 = cb;
+  recv_cb_arg_esp8266 = arg;
+  return esp_now_register_recv_cb(on_data_received_esp8266);
+}
+espnow_err_t ESPNowAPI_ESP8266::register_send_cb(void (*cb)(const uint8_t *mac_addr, esp_now_send_status_t status),
+                                               void *arg) {
+  send_cb_esp8266 = cb;
+  send_cb_arg_esp8266 = arg;
+  return esp_now_register_send_cb(on_send_report_esp8266);
+}
+uint8_t ESPNowAPI_ESP8266::get_wifi_channel() { return wifi_get_channel(); }
+void ESPNowAPI_ESP8266::set_wifi_channel(uint8_t channel) {
+  // esp_wifi_set_promiscuous is not available on ESP8266
+  wifi_set_channel(channel);
+}
+void ESPNowAPI_ESP8266::get_mac(uint8_t *mac) {
+  // esp_wifi_get_mac is not available on ESP8266, use WiFi.macAddress()
+  WiFi.macAddress(mac);
+}
+#endif
+
+}  // namespace espnow
+}  // namespace esphome
+
+#endif  // defined(USE_ESP32) || defined(USE_ESP8266)

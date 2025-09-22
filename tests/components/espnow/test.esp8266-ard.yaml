@@ -1,1 +1,1 @@
-<<: !include common.yaml
+<<: !include common-esp8266.yaml

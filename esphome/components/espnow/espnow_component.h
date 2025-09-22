@@ -7,21 +7,7 @@
 
 #include "esphome/core/event_pool.h"
 #include "esphome/core/lock_free_queue.h"
-#include "espnow_packet.h"
-
-#ifdef USE_ESP32
-#include <esp_idf_version.h>
-#include <esp_mac.h>
-#include <esp_now.h>
-#endif  // USE_ESP32
-
-#ifdef USE_ESP8266
-#include <espnow.h>
-#include <ESP8266WiFi.h>
-#ifndef ESP_NOW_ETH_ALEN
-#define ESP_NOW_ETH_ALEN 6
-#endif
-#endif  // USE_ESP8266
+#include "espnow_api.h"
 
 #include <array>
 #include <map>
@@ -131,6 +117,7 @@ class ESPNowComponent : public Component {
 #endif
   void set_enable_on_boot(bool enable_on_boot) { this->enable_on_boot_ = enable_on_boot; }
   bool is_wifi_enabled();
+  const std::vector<ESPNowPeer> &get_peers() const { return this->peers_; }
 
   /// @brief Queue a packet to be sent to a specific peer address.
   /// This method will add the packet to the internal queue and
@@ -157,18 +144,8 @@ class ESPNowComponent : public Component {
   }
 
  protected:
-#ifdef USE_ESP32
-  friend void on_data_received(const esp_now_recv_info_t *info, const uint8_t *data, int size);
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
-  friend void on_send_report(const esp_now_send_info_t *info, esp_now_send_status_t status);
-#else
-  friend void on_send_report(const uint8_t *mac_addr, esp_now_send_status_t status);
-#endif
-#endif  // USE_ESP32
-#ifdef USE_ESP8266
-  friend void on_data_received_proxy(uint8_t *mac_addr, uint8_t *data, uint8_t len);
-  friend void on_send_report_proxy(uint8_t *mac_addr, uint8_t status);
-#endif  // USE_ESP8266
+  void on_data_received(const ESPNowRecvInfo &info, const uint8_t *data, int size);
+  void on_send_report(const uint8_t *mac_addr, esp_now_send_status_t status);
 
   void enable_();
   void send_();
@@ -188,6 +165,7 @@ class ESPNowComponent : public Component {
   ESPNowSendPacket *current_send_packet_{nullptr};  // Currently sending packet, nullptr if none
 
   uint8_t wifi_channel_{0};
+  ESPNowAPI *api_{nullptr};
   ESPNowState state_{ESPNOW_STATE_OFF};
 
   bool auto_add_peer_{false};

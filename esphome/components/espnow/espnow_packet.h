@@ -81,7 +81,6 @@ class ESPNowPacket {
       ESPNowRecvInfo info;                 // Information about the received packet
       uint8_t data[ESP_NOW_MAX_DATA_LEN];  // Data received in the packet
       uint8_t size;                        // Size of the received data
-      WifiPacketRxControl rx_ctrl;         // Status of the received packet
     } receive;
 
     // NOLINTNEXTLINE(readability-identifier-naming)
@@ -98,14 +97,9 @@ class ESPNowPacket {
 
  private:
   void init_received_data_(const ESPNowRecvInfo &info, const uint8_t *data, int size) {
-    memcpy(this->packet_.receive.info.src_addr, info.src_addr, ESP_NOW_ETH_ALEN);
-    memcpy(this->packet_.receive.info.des_addr, info.des_addr, ESP_NOW_ETH_ALEN);
+    this->packet_.receive.info = info;
     memcpy(this->packet_.receive.data, data, size);
     this->packet_.receive.size = size;
-#ifdef USE_ESP32
-    this->packet_.receive.rx_ctrl.timestamp = info.rx_ctrl.timestamp;
-#endif
-    this->packet_.receive.rx_ctrl.rssi = info.rx_ctrl.rssi;
   }
 
   void init_sent_data_(const uint8_t *mac_addr, esp_now_send_status_t status) {
