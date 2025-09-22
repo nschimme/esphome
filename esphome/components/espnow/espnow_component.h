@@ -3,16 +3,25 @@
 #include "esphome/core/automation.h"
 #include "esphome/core/component.h"
 
-#ifdef USE_ESP32
+#if defined(USE_ESP32) || defined(USE_ESP8266)
 
 #include "esphome/core/event_pool.h"
 #include "esphome/core/lock_free_queue.h"
 #include "espnow_packet.h"
 
+#ifdef USE_ESP32
 #include <esp_idf_version.h>
-
 #include <esp_mac.h>
 #include <esp_now.h>
+#endif  // USE_ESP32
+
+#ifdef USE_ESP8266
+#include <espnow.h>
+#include <ESP8266WiFi.h>
+#ifndef ESP_NOW_ETH_ALEN
+#define ESP_NOW_ETH_ALEN 6
+#endif
+#endif  // USE_ESP8266
 
 #include <array>
 #include <map>
@@ -104,9 +113,9 @@ class ESPNowComponent : public Component {
     this->peers_.push_back(peer);
   }
   // Add a peer with the esp_now api and add to the internal list if doesnt exist already
-  esp_err_t add_peer(const uint8_t *peer);
+  espnow_err_t add_peer(const uint8_t *peer);
   // Remove a peer with the esp_now api and remove from the internal list if exists
-  esp_err_t del_peer(const uint8_t *peer);
+  espnow_err_t del_peer(const uint8_t *peer);
 
   void set_wifi_channel(uint8_t channel) { this->wifi_channel_ = channel; }
   void apply_wifi_channel();
@@ -117,6 +126,9 @@ class ESPNowComponent : public Component {
   void enable();
   void disable();
   bool is_disabled() const { return this->state_ == ESPNOW_STATE_DISABLED; };
+#ifdef USE_ESP8266
+  bool is_peer_exist(const uint8_t *peer_addr);
+#endif
   void set_enable_on_boot(bool enable_on_boot) { this->enable_on_boot_ = enable_on_boot; }
   bool is_wifi_enabled();
 
@@ -129,11 +141,11 @@ class ESPNowComponent : public Component {
   /// @param payload Data payload to send
   /// @param callback Callback to call when the send operation is complete
   /// @return ESP_OK on success, or an error code on failure
-  esp_err_t send(const uint8_t *peer_address, const std::vector<uint8_t> &payload,
+  espnow_err_t send(const uint8_t *peer_address, const std::vector<uint8_t> &payload,
                  const send_callback_t &callback = nullptr) {
     return this->send(peer_address, payload.data(), payload.size(), callback);
   }
-  esp_err_t send(const uint8_t *peer_address, const uint8_t *payload, size_t size,
+  espnow_err_t send(const uint8_t *peer_address, const uint8_t *payload, size_t size,
                  const send_callback_t &callback = nullptr);
 
   void register_received_handler(ESPNowReceivedPacketHandler *handler) { this->received_handlers_.push_back(handler); }
@@ -145,12 +157,18 @@ class ESPNowComponent : public Component {
   }
 
  protected:
+#ifdef USE_ESP32
   friend void on_data_received(const esp_now_recv_info_t *info, const uint8_t *data, int size);
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
   friend void on_send_report(const esp_now_send_info_t *info, esp_now_send_status_t status);
 #else
   friend void on_send_report(const uint8_t *mac_addr, esp_now_send_status_t status);
 #endif
+#endif  // USE_ESP32
+#ifdef USE_ESP8266
+  friend void on_data_received_proxy(uint8_t *mac_addr, uint8_t *data, uint8_t len);
+  friend void on_send_report_proxy(uint8_t *mac_addr, uint8_t status);
+#endif  // USE_ESP8266
 
   void enable_();
   void send_();
@@ -180,4 +198,4 @@ extern ESPNowComponent *global_esp_now;  // NOLINT(cppcoreguidelines-avoid-non-c
 
 }  // namespace esphome::espnow
 
-#endif  // USE_ESP32
+#endif  // defined(USE_ESP32) || defined(USE_ESP8266)

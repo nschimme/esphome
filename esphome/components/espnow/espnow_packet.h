@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef USE_ESP32
+#if defined(USE_ESP32) || defined(USE_ESP8266)
 
 #include "espnow_err.h"
 
@@ -10,9 +10,22 @@
 #include <memory>
 #include <vector>
 
+#ifdef USE_ESP32
 #include <esp_err.h>
 #include <esp_idf_version.h>
 #include <esp_now.h>
+#endif  // USE_ESP32
+
+#ifdef USE_ESP8266
+#include <espnow.h>
+#include <ESP8266WiFi.h>
+#ifndef ESP_NOW_ETH_ALEN
+#define ESP_NOW_ETH_ALEN 6
+#endif
+#ifndef ESP_NOW_MAX_DATA_LEN
+#define ESP_NOW_MAX_DATA_LEN 250
+#endif
+#endif  // USE_ESP8266
 
 namespace esphome::espnow {
 
@@ -21,17 +34,19 @@ static const uint8_t ESPNOW_MULTICAST_ADDR[ESP_NOW_ETH_ALEN] = {0xFF, 0xFF, 0xFF
 
 struct WifiPacketRxControl {
   int8_t rssi;         // Received Signal Strength Indicator (RSSI) of packet, unit: dBm
+#ifdef USE_ESP32
   uint32_t timestamp;  // Timestamp in microseconds when the packet was received, precise only if modem sleep or
                        // light sleep is not enabled
+#endif
 };
 
 struct ESPNowRecvInfo {
   uint8_t src_addr[ESP_NOW_ETH_ALEN]; /**< Source address of ESPNOW packet */
   uint8_t des_addr[ESP_NOW_ETH_ALEN]; /**< Destination address of ESPNOW packet */
-  wifi_pkt_rx_ctrl_t *rx_ctrl;        /**< Rx control info of ESPNOW packet */
+  WifiPacketRxControl rx_ctrl;        /**< Rx control info of ESPNOW packet */
 };
 
-using send_callback_t = std::function<void(esp_err_t)>;
+using send_callback_t = std::function<void(espnow_err_t)>;
 
 class ESPNowPacket {
  public:
@@ -41,27 +56,12 @@ class ESPNowPacket {
     SENT,
   };
 
-  // Constructor for received data
-  ESPNowPacket(const esp_now_recv_info_t *info, const uint8_t *data, int size) {
-    this->init_received_data_(info, data, size);
-  };
-
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
-  // Constructor for sent data
-  ESPNowPacket(const esp_now_send_info_t *info, esp_now_send_status_t status) {
-    this->init_sent_data_(info->src_addr, status);
-  }
-#else
-  // Constructor for sent data
-  ESPNowPacket(const uint8_t *mac_addr, esp_now_send_status_t status) { this->init_sent_data_(mac_addr, status); }
-#endif
-
   // Default constructor for pre-allocation in pool
   ESPNowPacket() {}
 
   void release() {}
 
-  void load_received_data(const esp_now_recv_info_t *info, const uint8_t *data, int size) {
+  void load_received_data(const ESPNowRecvInfo &info, const uint8_t *data, int size) {
     this->type_ = RECEIVED;
     this->init_received_data_(info, data, size);
   }
@@ -97,16 +97,15 @@ class ESPNowPacket {
   const ESPNowRecvInfo &get_receive_info() const { return this->packet_.receive.info; }
 
  private:
-  void init_received_data_(const esp_now_recv_info_t *info, const uint8_t *data, int size) {
-    memcpy(this->packet_.receive.info.src_addr, info->src_addr, ESP_NOW_ETH_ALEN);
-    memcpy(this->packet_.receive.info.des_addr, info->des_addr, ESP_NOW_ETH_ALEN);
+  void init_received_data_(const ESPNowRecvInfo &info, const uint8_t *data, int size) {
+    memcpy(this->packet_.receive.info.src_addr, info.src_addr, ESP_NOW_ETH_ALEN);
+    memcpy(this->packet_.receive.info.des_addr, info.des_addr, ESP_NOW_ETH_ALEN);
     memcpy(this->packet_.receive.data, data, size);
     this->packet_.receive.size = size;
-
-    this->packet_.receive.rx_ctrl.rssi = info->rx_ctrl->rssi;
-    this->packet_.receive.rx_ctrl.timestamp = info->rx_ctrl->timestamp;
-
-    this->packet_.receive.info.rx_ctrl = reinterpret_cast<wifi_pkt_rx_ctrl_t *>(&this->packet_.receive.rx_ctrl);
+#ifdef USE_ESP32
+    this->packet_.receive.rx_ctrl.timestamp = info.rx_ctrl.timestamp;
+#endif
+    this->packet_.receive.rx_ctrl.rssi = info.rx_ctrl.rssi;
   }
 
   void init_sent_data_(const uint8_t *mac_addr, esp_now_send_status_t status) {
@@ -163,4 +162,4 @@ class ESPNowSendPacket {
 
 }  // namespace esphome::espnow
 
-#endif  // USE_ESP32
+#endif  // defined(USE_ESP32) || defined(USE_ESP8266)

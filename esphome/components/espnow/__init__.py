@@ -93,7 +93,7 @@ CONFIG_SCHEMA = cv.All(
             ),
         },
     ).extend(cv.COMPONENT_SCHEMA),
-    cv.only_on_esp32,
+    cv.Any(cv.only_on_esp32, cv.only_on_esp8266),
 )
 
 

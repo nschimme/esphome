@@ -5,11 +5,18 @@ espnow:
     - 11:22:33:44:55:66
   on_receive:
     - logger.log:
+#ifdef USE_ESP32
         format: "Received from: %s = '%s'  RSSI: %d"
         args:
           - format_mac_address_pretty(info.src_addr).c_str()
           - format_hex_pretty(data, size).c_str()
-          - info.rx_ctrl->rssi
+          - info.rx_ctrl.rssi
+#else
+        format: "Received from: %s = '%s'"
+        args:
+          - format_mac_address_pretty(info.src_addr).c_str()
+          - format_hex_pretty(data, size).c_str()
+#endif
     - espnow.send:
         address: 11:22:33:44:55:66
         data: "Hello from ESPHome"
@@ -38,15 +45,29 @@ espnow:
         address: 11:22:33:44:55:66
   on_broadcast:
     - logger.log:
+#ifdef USE_ESP32
         format: "Broadcast from: %s = '%s'  RSSI: %d"
         args:
           - format_mac_address_pretty(info.src_addr).c_str()
           - format_hex_pretty(data, size).c_str()
-          - info.rx_ctrl->rssi
+          - info.rx_ctrl.rssi
+#else
+        format: "Broadcast from: %s = '%s'"
+        args:
+          - format_mac_address_pretty(info.src_addr).c_str()
+          - format_hex_pretty(data, size).c_str()
+#endif
   on_unknown_peer:
     - logger.log:
+#ifdef USE_ESP32
         format: "Unknown peer: %s = '%s'  RSSI: %d"
         args:
           - format_mac_address_pretty(info.src_addr).c_str()
           - format_hex_pretty(data, size).c_str()
-          - info.rx_ctrl->rssi
+          - info.rx_ctrl.rssi
+#else
+        format: "Unknown peer: %s = '%s'"
+        args:
+          - format_mac_address_pretty(info.src_addr).c_str()
+          - format_hex_pretty(data, size).c_str()
+#endif
