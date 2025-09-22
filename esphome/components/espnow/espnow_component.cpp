@@ -104,17 +104,12 @@ void ESPNowComponent::enable() {
 }
 
 void ESPNowComponent::enable_() {
-  if (!this->is_wifi_enabled()) {
-    WiFi.mode(WIFI_STA);
-    WiFi.disconnect();
-  }
-  this->wifi_channel_ = this->api_->get_wifi_channel();
-
-  if (this->api_->init() != ESP_OK) {
+  if (this->api_->init(this->is_wifi_enabled()) != ESP_OK) {
     ESP_LOGE(TAG, "esp_now_init failed");
     this->mark_failed();
     return;
   }
+  this->wifi_channel_ = this->api_->get_wifi_channel();
 
   if (this->api_->register_recv_cb([](const ESPNowRecvInfo &info, const uint8_t *data, int size) {
     global_esp_now->on_data_received(info, data, size);

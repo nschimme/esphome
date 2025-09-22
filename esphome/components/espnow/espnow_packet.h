@@ -32,18 +32,43 @@ namespace esphome::espnow {
 static const uint8_t ESPNOW_BROADCAST_ADDR[ESP_NOW_ETH_ALEN] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 static const uint8_t ESPNOW_MULTICAST_ADDR[ESP_NOW_ETH_ALEN] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFE};
 
-struct WifiPacketRxControl {
-  int8_t rssi;         // Received Signal Strength Indicator (RSSI) of packet, unit: dBm
-#ifdef USE_ESP32
-  uint32_t timestamp;  // Timestamp in microseconds when the packet was received, precise only if modem sleep or
-                       // light sleep is not enabled
-#endif
+#ifdef USE_ESP8266
+struct wifi_pkt_rx_ctrl_t {
+    signed rssi:8;
+    unsigned rate:4;
+    unsigned is_group:1;
+    unsigned:1;
+    unsigned sig_mode:2;
+    unsigned sig_len:12;
+    unsigned damatch0:1;
+    unsigned damatch1:1;
+    unsigned bssidmatch0:1;
+    unsigned bssidmatch1:1;
+    unsigned MCS:7;
+    unsigned CWB:1;
+    unsigned HT_length:16;
+    unsigned Smoothing:1;
+    unsigned Not_Sounding:1;
+    unsigned:1;
+    unsigned Aggregation:1;
+    unsigned STBC:2;
+    unsigned FEC_CODING:1;
+    unsigned SGI:1;
+    unsigned rxend_state:8;
+    unsigned ampdu_cnt:8;
+    unsigned channel:4;
+    unsigned:12;
 };
+#endif
 
 struct ESPNowRecvInfo {
   uint8_t src_addr[ESP_NOW_ETH_ALEN]; /**< Source address of ESPNOW packet */
   uint8_t des_addr[ESP_NOW_ETH_ALEN]; /**< Destination address of ESPNOW packet */
-  WifiPacketRxControl rx_ctrl;        /**< Rx control info of ESPNOW packet */
+#ifdef USE_ESP32
+  wifi_pkt_rx_ctrl_t *rx_ctrl;        /**< Rx control info of ESPNOW packet */
+#else
+  wifi_pkt_rx_ctrl_t rx_ctrl;        /**< Rx control info of ESPNOW packet */
+#endif
 };
 
 using send_callback_t = std::function<void(espnow_err_t)>;

@@ -21,7 +21,7 @@ typedef struct {
 class ESPNowAPI {
  public:
   virtual ~ESPNowAPI() = default;
-  virtual espnow_err_t init() = 0;
+  virtual espnow_err_t init(bool wifi_enabled) = 0;
   virtual espnow_err_t deinit() = 0;
   virtual espnow_err_t add_peer(const esp_now_peer_info_t *peer) = 0;
   virtual espnow_err_t del_peer(const uint8_t *peer_addr) = 0;
@@ -40,7 +40,7 @@ class ESPNowAPI {
 #ifdef USE_ESP32
 class ESPNowAPI_ESP32 : public ESPNowAPI {
  public:
-  espnow_err_t init() override;
+  espnow_err_t init(bool wifi_enabled) override;
   espnow_err_t deinit() override;
   espnow_err_t add_peer(const esp_now_peer_info_t *peer) override;
   espnow_err_t del_peer(const uint8_t *peer_addr) override;
@@ -57,7 +57,7 @@ class ESPNowAPI_ESP32 : public ESPNowAPI {
 #ifdef USE_ESP8266
 class ESPNowAPI_ESP8266 : public ESPNowAPI {
  public:
-  espnow_err_t init() override;
+  espnow_err_t init(bool wifi_enabled) override;
   espnow_err_t deinit() override;
   espnow_err_t add_peer(const esp_now_peer_info_t *peer) override;
   espnow_err_t del_peer(const uint8_t *peer_addr) override;

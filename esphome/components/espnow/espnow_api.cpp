@@ -80,21 +80,22 @@ void on_data_received_esp32(const esp_now_recv_info_t *info, const uint8_t *data
     ESPNowRecvInfo recv_info;
     memcpy(recv_info.src_addr, info->src_addr, ESP_NOW_ETH_ALEN);
     memcpy(recv_info.des_addr, info->des_addr, ESP_NOW_ETH_ALEN);
-    recv_info.rx_ctrl.rssi = info->rx_ctrl->rssi;
-    recv_info.rx_ctrl.timestamp = info->rx_ctrl->timestamp;
+    recv_info.rx_ctrl = info->rx_ctrl;
     recv_cb_esp32(recv_info, data, size);
   }
 }
 
-espnow_err_t ESPNowAPI_ESP32::init() {
-  esp_event_loop_create_default();
-  wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-  esp_wifi_init(&cfg);
-  esp_wifi_set_mode(WIFI_MODE_STA);
-  esp_wifi_set_storage(WIFI_STORAGE_RAM);
-  esp_wifi_set_ps(WIFI_PS_NONE);
-  esp_wifi_start();
-  esp_wifi_disconnect();
+espnow_err_t ESPNowAPI_ESP32::init(bool wifi_enabled) {
+  if (!wifi_enabled) {
+    esp_event_loop_create_default();
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    esp_wifi_init(&cfg);
+    esp_wifi_set_mode(WIFI_MODE_STA);
+    esp_wifi_set_storage(WIFI_STORAGE_RAM);
+    esp_wifi_set_ps(WIFI_PS_NONE);
+    esp_wifi_start();
+    esp_wifi_disconnect();
+  }
   return esp_now_init();
 }
 espnow_err_t ESPNowAPI_ESP32::deinit() { return esp_now_deinit(); }
@@ -183,7 +184,11 @@ void on_send_report_esp8266(uint8_t *mac_addr, uint8_t status) {
   }
 }
 
-espnow_err_t ESPNowAPI_ESP8266::init() {
+espnow_err_t ESPNowAPI_ESP8266::init(bool wifi_enabled) {
+  if (!wifi_enabled) {
+    WiFi.mode(WIFI_STA);
+    WiFi.disconnect();
+  }
   wifi_set_promiscuous_rx_cb(promiscuous_rx_cb);
   wifi_set_promiscuous(true);
   return esp_now_init();
