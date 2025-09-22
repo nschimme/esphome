@@ -40,12 +40,8 @@ void on_data_received_esp32(const esp_now_recv_info_t *info, const uint8_t *data
 
 espnow_err_t ESPNowAPI_ESP32::init() { return esp_now_init(); }
 espnow_err_t ESPNowAPI_ESP32::deinit() { return esp_now_deinit(); }
-espnow_err_t ESPNowAPI_ESP32::add_peer(const uint8_t *peer_addr, uint8_t channel) {
-  esp_now_peer_info_t peer_info = {};
-  memset(&peer_info, 0, sizeof(esp_now_peer_info_t));
-  peer_info.ifidx = WIFI_IF_STA;
-  memcpy(peer_info.peer_addr, peer_addr, ESP_NOW_ETH_ALEN);
-  return esp_now_add_peer(&peer_info);
+espnow_err_t ESPNowAPI_ESP32::add_peer(const esp_now_peer_info_t *peer) {
+  return esp_now_add_peer(peer);
 }
 espnow_err_t ESPNowAPI_ESP32::del_peer(const uint8_t *peer_addr) { return esp_now_del_peer(peer_addr); }
 espnow_err_t ESPNowAPI_ESP32::send(const uint8_t *peer_addr, const uint8_t *data, size_t len) {
@@ -136,19 +132,14 @@ espnow_err_t ESPNowAPI_ESP8266::deinit() {
   esp_now_deinit();
   return ESP_OK;
 }
-espnow_err_t ESPNowAPI_ESP8266::add_peer(const uint8_t *peer_addr, uint8_t channel) {
-  return esp_now_add_peer(const_cast<uint8_t *>(peer_addr), ESP_NOW_ROLE_COMBO, channel, nullptr, 0);
+espnow_err_t ESPNowAPI_ESP8266::add_peer(const esp_now_peer_info_t *peer) {
+  return esp_now_add_peer(const_cast<uint8_t *>(peer->peer_addr), ESP_NOW_ROLE_COMBO, peer->channel,
+                          peer->encrypt ? const_cast<uint8_t *>(peer->lmk) : nullptr, peer->encrypt ? 16 : 0);
 }
 espnow_err_t ESPNowAPI_ESP8266::del_peer(const uint8_t *peer_addr) {
   return esp_now_del_peer(const_cast<uint8_t *>(peer_addr));
 }
 espnow_err_t ESPNowAPI_ESP8266::send(const uint8_t *peer_addr, const uint8_t *data, size_t len) {
-  if (memcmp(peer_addr, ESPNOW_BROADCAST_ADDR, ESP_NOW_ETH_ALEN) == 0) {
-    for (auto &it : global_esp_now->get_peers()) {
-      esp_now_send(it.address, const_cast<uint8_t *>(data), len);
-    }
-    return ESP_OK;
-  }
   return esp_now_send(const_cast<uint8_t *>(peer_addr), const_cast<uint8_t *>(data), len);
 }
 espnow_err_t ESPNowAPI_ESP8266::register_recv_cb(void (*cb)(const ESPNowRecvInfo &info, const uint8_t *data, int size),

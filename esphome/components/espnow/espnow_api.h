@@ -8,12 +8,22 @@
 namespace esphome {
 namespace espnow {
 
+#ifdef USE_ESP8266
+typedef struct {
+    uint8_t peer_addr[ESP_NOW_ETH_ALEN];
+    uint8_t lmk[16];
+    uint8_t channel;
+    uint8_t ifidx;
+    bool encrypt;
+} esp_now_peer_info_t;
+#endif
+
 class ESPNowAPI {
  public:
   virtual ~ESPNowAPI() = default;
   virtual espnow_err_t init() = 0;
   virtual espnow_err_t deinit() = 0;
-  virtual espnow_err_t add_peer(const uint8_t *peer_addr, uint8_t channel) = 0;
+  virtual espnow_err_t add_peer(const esp_now_peer_info_t *peer) = 0;
   virtual espnow_err_t del_peer(const uint8_t *peer_addr) = 0;
   virtual espnow_err_t send(const uint8_t *peer_addr, const uint8_t *data, size_t len) = 0;
   virtual espnow_err_t register_recv_cb(void (*cb)(const ESPNowRecvInfo &info, const uint8_t *data, int size), void *arg) = 0;
@@ -28,7 +38,7 @@ class ESPNowAPI_ESP32 : public ESPNowAPI {
  public:
   espnow_err_t init() override;
   espnow_err_t deinit() override;
-  espnow_err_t add_peer(const uint8_t *peer_addr, uint8_t channel) override;
+  espnow_err_t add_peer(const esp_now_peer_info_t *peer) override;
   espnow_err_t del_peer(const uint8_t *peer_addr) override;
   espnow_err_t send(const uint8_t *peer_addr, const uint8_t *data, size_t len) override;
   espnow_err_t register_recv_cb(void (*cb)(const ESPNowRecvInfo &info, const uint8_t *data, int size), void *arg) override;
@@ -44,7 +54,7 @@ class ESPNowAPI_ESP8266 : public ESPNowAPI {
  public:
   espnow_err_t init() override;
   espnow_err_t deinit() override;
-  espnow_err_t add_peer(const uint8_t *peer_addr, uint8_t channel) override;
+  espnow_err_t add_peer(const esp_now_peer_info_t *peer) override;
   espnow_err_t del_peer(const uint8_t *peer_addr) override;
   espnow_err_t send(const uint8_t *peer_addr, const uint8_t *data, size_t len) override;
   espnow_err_t register_recv_cb(void (*cb)(const ESPNowRecvInfo &info, const uint8_t *data, int size), void *arg) override;

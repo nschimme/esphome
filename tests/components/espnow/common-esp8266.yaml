@@ -5,10 +5,11 @@ espnow:
     - 11:22:33:44:55:66
   on_receive:
     - logger.log:
-        format: "Received from: %s = '%s'"
+        format: "Received from: %s = '%s'  RSSI: %d"
         args:
           - format_mac_address_pretty(info.src_addr).c_str()
           - format_hex_pretty(data, size).c_str()
+          - info.rx_ctrl.rssi
     - espnow.send:
         address: 11:22:33:44:55:66
         data: "Hello from ESPHome"
@@ -37,13 +38,15 @@ espnow:
         address: 11:22:33:44:55:66
   on_broadcast:
     - logger.log:
-        format: "Broadcast from: %s = '%s'"
+        format: "Broadcast from: %s = '%s'  RSSI: %d"
         args:
           - format_mac_address_pretty(info.src_addr).c_str()
           - format_hex_pretty(data, size).c_str()
+          - info.rx_ctrl.rssi
   on_unknown_peer:
     - logger.log:
-        format: "Unknown peer: %s = '%s'"
+        format: "Unknown peer: %s = '%s'  RSSI: %d"
         args:
           - format_mac_address_pretty(info.src_addr).c_str()
           - format_hex_pretty(data, size).c_str()
+          - info.rx_ctrl.rssi

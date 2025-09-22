@@ -61,6 +61,15 @@ std::string peer_str(uint8_t *peer) {
   }
 }
 
+bool ESPNowComponent::is_peer_exist(const uint8_t *peer_addr) {
+  for (auto &it : this->peers_) {
+    if (memcmp(it.address, peer_addr, ESP_NOW_ETH_ALEN) == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void ESPNowComponent::on_data_received(const ESPNowRecvInfo &info, const uint8_t *data, int size) {
   ESPNowPacket *packet = this->receive_packet_pool_.allocate();
   if (packet == nullptr) {
@@ -217,13 +226,7 @@ void ESPNowComponent::loop() {
     switch (packet->type_) {
       case ESPNowPacket::RECEIVED: {
         const ESPNowRecvInfo info = packet->get_receive_info();
-        bool is_peer_exist = false;
-        for (auto &it : this->peers_) {
-          if (memcmp(it.address, info.src_addr, ESP_NOW_ETH_ALEN) == 0) {
-            is_peer_exist = true;
-            break;
-          }
-        }
+        bool is_peer_exist = this->is_peer_exist(info.src_addr);
         if (!is_peer_exist) {
           bool handled = false;
           for (auto *handler : this->unknown_peer_handlers_) {
@@ -311,13 +314,7 @@ espnow_err_t ESPNowComponent::send(const uint8_t *peer_address, const uint8_t *p
     return ESP_ERR_ESPNOW_DATA_SIZE;
   }
 
-  bool is_peer_exist = false;
-  for (auto &it : this->peers_) {
-    if (memcmp(it.address, peer_address, ESP_NOW_ETH_ALEN) == 0) {
-      is_peer_exist = true;
-      break;
-    }
-  }
+  bool is_peer_exist = this->is_peer_exist(peer_address);
 
   if (!is_peer_exist) {
     if (memcmp(peer_address, ESPNOW_BROADCAST_ADDR, ESP_NOW_ETH_ALEN) == 0 || this->auto_add_peer_) {
@@ -374,7 +371,10 @@ espnow_err_t ESPNowComponent::add_peer(const uint8_t *peer) {
     return ESP_ERR_ESPNOW_OWN_ADDRESS;
   }
 
-  if (this->api_->add_peer(peer, this->wifi_channel_) != ESP_OK) {
+  esp_now_peer_info_t peer_info = {};
+  peer_info.channel = this->wifi_channel_;
+  memcpy(peer_info.peer_addr, peer, ESP_NOW_ETH_ALEN);
+  if (this->api_->add_peer(&peer_info) != ESP_OK) {
     ESP_LOGE(TAG, "Failed to add peer %s", format_mac_address_pretty(peer).c_str());
     this->status_momentary_warning("peer-add-failed");
     return ESP_FAIL;

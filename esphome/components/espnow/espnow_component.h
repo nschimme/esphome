@@ -117,7 +117,7 @@ class ESPNowComponent : public Component {
 #endif
   void set_enable_on_boot(bool enable_on_boot) { this->enable_on_boot_ = enable_on_boot; }
   bool is_wifi_enabled();
-  const std::vector<ESPNowPeer> &get_peers() const { return this->peers_; }
+  bool is_peer_exist(const uint8_t *peer_addr);
 
   /// @brief Queue a packet to be sent to a specific peer address.
   /// This method will add the packet to the internal queue and
