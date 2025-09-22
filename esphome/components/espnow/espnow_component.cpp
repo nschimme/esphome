@@ -45,23 +45,39 @@ void ESPNowComponent::dump_config() {
 }
 
 void ESPNowComponent::on_data_received_callback(const ESPNowRecvInfo &info, const uint8_t *data, int size) {
+#ifdef USE_ESP32
   ESPNowPacket *packet = this->receive_packet_pool_.allocate();
   if (packet == nullptr) {
     this->receive_packet_queue_.increment_dropped_count();
     return;
   }
+#else
+  ESPNowPacket *packet = new ESPNowPacket();
+#endif
   packet->load_received_data(info, data, size);
+#ifdef USE_ESP32
   this->receive_packet_queue_.push(packet);
+#else
+  this->receive_packet_queue_.push_back(packet);
+#endif
 }
 
 void ESPNowComponent::on_data_sent_callback(const uint8_t *mac_addr, bool success) {
+#ifdef USE_ESP32
   ESPNowPacket *packet = this->receive_packet_pool_.allocate();
   if (packet == nullptr) {
     this->receive_packet_queue_.increment_dropped_count();
     return;
   }
+#else
+  ESPNowPacket *packet = new ESPNowPacket();
+#endif
   packet->load_sent_data(mac_addr, success);
+#ifdef USE_ESP32
   this->receive_packet_queue_.push(packet);
+#else
+  this->receive_packet_queue_.push_back(packet);
+#endif
 }
 
 bool ESPNowComponent::is_wifi_enabled() {
@@ -160,7 +176,15 @@ void ESPNowComponent::loop() {
   }
 #endif
   // Process received packets
+#ifdef USE_ESP32
   ESPNowPacket *packet = this->receive_packet_queue_.pop();
+#else
+  ESPNowPacket *packet = nullptr;
+  if (!this->receive_packet_queue_.empty()) {
+    packet = this->receive_packet_queue_.front();
+    this->receive_packet_queue_.erase(this->receive_packet_queue_.begin());
+  }
+#endif
   while (packet != nullptr) {
     switch (packet->type_) {
       case ESPNowPacket::RECEIVED: {
@@ -204,7 +228,11 @@ void ESPNowComponent::loop() {
 #endif
         if (this->current_send_packet_ != nullptr) {
           this->current_send_packet_->callback_(packet->packet_.sent.success);
+#ifdef USE_ESP32
           this->send_packet_pool_.release(this->current_send_packet_);
+#else
+          delete this->current_send_packet_;
+#endif
           this->current_send_packet_ = nullptr;
         }
         break;
@@ -212,14 +240,25 @@ void ESPNowComponent::loop() {
       default:
         break;
     }
+#ifdef USE_ESP32
     this->receive_packet_pool_.release(packet);
     packet = this->receive_packet_queue_.pop();
+#else
+    delete packet;
+    if (!this->receive_packet_queue_.empty()) {
+      packet = this->receive_packet_queue_.front();
+      this->receive_packet_queue_.erase(this->receive_packet_queue_.begin());
+    } else {
+      packet = nullptr;
+    }
+#endif
   }
 
   if (this->current_send_packet_ == nullptr) {
     this->send_();
   }
 
+#ifdef USE_ESP32
   uint16_t received_dropped = this->receive_packet_queue_.get_and_reset_dropped_count();
   if (received_dropped > 0) {
     ESP_LOGW(TAG, "Dropped %u received packets due to buffer overflow", received_dropped);
@@ -229,6 +268,7 @@ void ESPNowComponent::loop() {
   if (send_dropped > 0) {
     ESP_LOGW(TAG, "Dropped %u send packets due to buffer overflow", send_dropped);
   }
+#endif
 }
 
 uint8_t ESPNowComponent::get_wifi_channel() {
@@ -262,6 +302,7 @@ bool ESPNowComponent::send(const uint8_t *peer_address, const uint8_t *payload, 
       return false;
     }
   }
+#ifdef USE_ESP32
   ESPNowSendPacket *packet = this->send_packet_pool_.allocate();
   if (packet == nullptr) {
     this->send_packet_queue_.increment_dropped_count();
@@ -269,13 +310,28 @@ bool ESPNowComponent::send(const uint8_t *peer_address, const uint8_t *payload, 
     this->status_momentary_warning("send-packet-pool-full");
     return false;
   }
+#else
+  ESPNowSendPacket *packet = new ESPNowSendPacket();
+#endif
   packet->load_data(peer_address, payload, size, callback);
+#ifdef USE_ESP32
   this->send_packet_queue_.push(packet);
+#else
+  this->send_packet_queue_.push_back(packet);
+#endif
   return true;
 }
 
 void ESPNowComponent::send_() {
+#ifdef USE_ESP32
   ESPNowSendPacket *packet = this->send_packet_queue_.pop();
+#else
+  ESPNowSendPacket *packet = nullptr;
+  if (!this->send_packet_queue_.empty()) {
+    packet = this->send_packet_queue_.front();
+    this->send_packet_queue_.erase(this->send_packet_queue_.begin());
+  }
+#endif
   if (packet == nullptr) {
     return;
   }
@@ -286,7 +342,11 @@ void ESPNowComponent::send_() {
       packet->callback_(false);
     }
     this->status_momentary_warning("send-failed");
+#ifdef USE_ESP32
     this->send_packet_pool_.release(packet);
+#else
+    delete packet;
+#endif
     this->current_send_packet_ = nullptr;
   }
 }

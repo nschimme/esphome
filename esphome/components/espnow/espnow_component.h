@@ -2,7 +2,10 @@
 
 #include "esphome/core/automation.h"
 #include "esphome/core/component.h"
-#include "espnow_queue.h"
+#ifdef USE_ESP32
+#include "esphome/core/lock_free_queue.h"
+#include "esphome/core/event_pool.h"
+#endif
 #include "espnow_hal.h"
 
 #include <array>
@@ -149,11 +152,16 @@ class ESPNowComponent : public Component {
   std::vector<ESPNowPeer> peers_{};
 
   uint8_t own_address_[ESPNOW_ETH_ALEN]{0};
+#ifdef USE_ESP32
   LockFreeQueue<ESPNowPacket, MAX_ESP_NOW_RECEIVE_QUEUE_SIZE> receive_packet_queue_{};
   EventPool<ESPNowPacket, MAX_ESP_NOW_RECEIVE_QUEUE_SIZE> receive_packet_pool_{};
 
   LockFreeQueue<ESPNowSendPacket, MAX_ESP_NOW_SEND_QUEUE_SIZE> send_packet_queue_{};
   EventPool<ESPNowSendPacket, MAX_ESP_NOW_SEND_QUEUE_SIZE> send_packet_pool_{};
+#else
+  std::vector<ESPNowPacket *> receive_packet_queue_{};
+  std::vector<ESPNowSendPacket *> send_packet_queue_{};
+#endif
   ESPNowSendPacket *current_send_packet_{nullptr};  // Currently sending packet, nullptr if none
 
   uint8_t wifi_channel_{0};

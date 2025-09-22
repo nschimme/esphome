@@ -135,7 +135,7 @@ class OnReceiveTrigger : public Trigger<const ESPNowRecvInfo &, const uint8_t *,
 
  protected:
   bool has_address_{false};
-  const uint8_t *address_[ESPNOW_ETH_ALEN];
+  uint8_t address_[ESPNOW_ETH_ALEN];
 };
 class OnUnknownPeerTrigger : public Trigger<const ESPNowRecvInfo &, const uint8_t *, uint8_t>,
                              public ESPNowUnknownPeerHandler {
@@ -164,7 +164,7 @@ class OnBroadcastedTrigger : public Trigger<const ESPNowRecvInfo &, const uint8_
 
  protected:
   bool has_address_{false};
-  const uint8_t *address_[ESPNOW_ETH_ALEN];
+  uint8_t address_[ESPNOW_ETH_ALEN];
 };
 
 }  // namespace esphome::espnow
