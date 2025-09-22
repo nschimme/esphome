@@ -112,9 +112,6 @@ class ESPNowComponent : public Component {
   void enable();
   void disable();
   bool is_disabled() const { return this->state_ == ESPNOW_STATE_DISABLED; };
-#ifdef USE_ESP8266
-  bool is_peer_exist(const uint8_t *peer_addr);
-#endif
   void set_enable_on_boot(bool enable_on_boot) { this->enable_on_boot_ = enable_on_boot; }
   bool is_wifi_enabled();
   bool is_peer_exist(const uint8_t *peer_addr);

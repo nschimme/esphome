@@ -308,7 +308,8 @@ void ESPNowComponent::send_() {
   this->current_send_packet_ = packet;
   espnow_err_t err = this->api_->send(packet->address_, packet->data_, packet->size_);
   if (err != ESP_OK) {
-    ESP_LOGE(TAG, "Failed to send packet to %s", format_mac_address_pretty(packet->address_).c_str());
+    ESP_LOGE(TAG, "Failed to send packet to %s - %s", format_mac_address_pretty(packet->address_).c_str(),
+             LOG_STR_ARG(ESPNowAPI::espnow_error_to_str(err)));
     if (packet->callback_ != nullptr) {
       packet->callback_(err);
     }
@@ -332,10 +333,12 @@ espnow_err_t ESPNowComponent::add_peer(const uint8_t *peer) {
   esp_now_peer_info_t peer_info = {};
   peer_info.channel = this->wifi_channel_;
   memcpy(peer_info.peer_addr, peer, ESP_NOW_ETH_ALEN);
-  if (this->api_->add_peer(&peer_info) != ESP_OK) {
-    ESP_LOGE(TAG, "Failed to add peer %s", format_mac_address_pretty(peer).c_str());
+  espnow_err_t err = this->api_->add_peer(&peer_info);
+  if (err != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to add peer %s - %s", format_mac_address_pretty(peer).c_str(),
+             LOG_STR_ARG(ESPNowAPI::espnow_error_to_str(err)));
     this->status_momentary_warning("peer-add-failed");
-    return ESP_FAIL;
+    return err;
   }
 
   bool found = false;
@@ -358,10 +361,12 @@ espnow_err_t ESPNowComponent::del_peer(const uint8_t *peer) {
   if (this->state_ != ESPNOW_STATE_ENABLED || this->is_failed()) {
     return ESP_ERR_ESPNOW_NOT_INIT;
   }
-  if (this->api_->del_peer(peer) != 0) {
-    ESP_LOGE(TAG, "Failed to delete peer %s", format_mac_address_pretty(peer).c_str());
+  espnow_err_t err = this->api_->del_peer(peer);
+  if (err != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to delete peer %s - %s", format_mac_address_pretty(peer).c_str(),
+             LOG_STR_ARG(ESPNowAPI::espnow_error_to_str(err)));
     this->status_momentary_warning("peer-del-failed");
-    return ESP_FAIL;
+    return err;
   }
   for (auto it = this->peers_.begin(); it != this->peers_.end(); ++it) {
     if (memcmp(it->address, peer, ESP_NOW_ETH_ALEN) == 0) {
