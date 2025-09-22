@@ -19,21 +19,12 @@ packet_transport:
     id: espnow_transport
     espnow_id: espnow_hub
 
-binary_sensor:
-  - platform: packet_transport
-    transport_id: espnow_transport
-    provider: "11:22:33:44:55:66" # MAC address of the remote sensor node
-    remote_id: "door_sensor"
-    name: "Front Door Sensor"
-
 sensor:
   - platform: packet_transport
     transport_id: espnow_transport
     provider: "11:22:33:44:55:66" # MAC address of the remote sensor node
-    remote_id: "living_room_temp"
-    name: "Living Room Temperature"
-    accuracy_decimals: 1
-    unit_of_measurement: "°C"
+    remote_id: "light_level"
+    name: "Light Level"
 ```
 
 In this example:
@@ -59,26 +50,15 @@ packet_transport:
     # ... other transport options like encryption ...
 
 sensor:
-  - platform: dht
-    pin: D1
-    temperature:
-      name: "Living Room Temperature"
-      id: living_room_temp
-    humidity:
-      name: "Living Room Humidity"
-      id: living_room_humi
+  - platform: adc
+    pin: A0
+    name: "Light Level"
+    id: light_level
 
-binary_sensor:
-  - platform: gpio
-    pin: D2
-    name: "Front Door Sensor"
-    id: door_sensor
-
-# Send the temperature and door sensor values every 60 seconds
+# Send the light level value every 60 seconds
 interval:
   - interval: 60s
     then:
-      - component.update: living_room_temp
-      - component.update: door_sensor
+      - component.update: light_level
 ```
 In this remote node configuration, the `packet_transport` will automatically send the updated sensor values to all peers configured in the `espnow` component. The `id` of the temperature sensor (`living_room_temp`) must match the `remote_id` configured on the hub for the corresponding sensor.
