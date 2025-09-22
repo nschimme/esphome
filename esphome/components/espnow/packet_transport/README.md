@@ -68,10 +68,17 @@ sensor:
       name: "Living Room Humidity"
       id: living_room_humi
 
-# Send the temperature value every 60 seconds
+binary_sensor:
+  - platform: gpio
+    pin: D2
+    name: "Front Door Sensor"
+    id: door_sensor
+
+# Send the temperature and door sensor values every 60 seconds
 interval:
   - interval: 60s
     then:
       - component.update: living_room_temp
+      - component.update: door_sensor
 ```
 In this remote node configuration, the `packet_transport` will automatically send the updated sensor values to all peers configured in the `espnow` component. The `id` of the temperature sensor (`living_room_temp`) must match the `remote_id` configured on the hub for the corresponding sensor.
