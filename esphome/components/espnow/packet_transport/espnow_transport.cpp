@@ -6,6 +6,11 @@ namespace espnow {
 
 static const char *const TAG = "espnow_transport";
 
+void ESPNowTransport::dump_config() {
+  ESP_LOGCONFIG(TAG, "ESPNow Transport:");
+  ESP_LOGCONFIG(TAG, "  Parent: %s", this->parent_->get_name().c_str());
+}
+
 bool ESPNowTransport::on_received(const ESPNowRecvInfo &info, const uint8_t *data, uint8_t size) {
   this->process_(std::vector<uint8_t>(data, data + size));
   return true;

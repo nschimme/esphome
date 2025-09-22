@@ -12,6 +12,7 @@ static const uint16_t MAX_PACKET_SIZE = 250;
 
 class ESPNowTransport : public packet_transport::PacketTransport, public ESPNowReceivedPacketHandler, public Parented<ESPNowComponent> {
  public:
+  void dump_config() override;
   bool on_received(const ESPNowRecvInfo &info, const uint8_t *data, uint8_t size) override;
   float get_setup_priority() const override { return setup_priority::AFTER_WIFI; }
 
