@@ -92,7 +92,7 @@ QMC5883P_SET_RESET_MODES = {
 
 
 def validate_config(config):
-    variant = config[CONF_VARIANT]
+    variant = str(config[CONF_VARIANT])
     if variant == "QMC5883L":
         if CONF_RANGE in config and config[CONF_RANGE] > 800:
             raise cv.Invalid("QMC5883L only supports ranges up to 800µT")
@@ -160,7 +160,9 @@ CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(QMC5883LComponent),
-            cv.Optional(CONF_VARIANT, default="QMC5883L"): cv.enum(VARIANTS, upper=True),
+            cv.Optional(CONF_VARIANT, default="QMC5883L"): cv.enum(
+                VARIANTS, upper=True
+            ),
             cv.Optional(CONF_ADDRESS): cv.i2c_address,
             cv.Optional(CONF_RANGE): validate_enum(QMC5883L_RANGES, units=["uT", "µT"]),
             cv.Optional(CONF_OVERSAMPLING): validate_enum(
@@ -192,7 +194,7 @@ CONFIG_SCHEMA = cv.All(
 
 
 def final_validate_config(config):
-    variant = config[CONF_VARIANT]
+    variant = str(config[CONF_VARIANT])
     if CONF_RANGE not in config:
         config[CONF_RANGE] = 200
     if CONF_OVERSAMPLING not in config:
@@ -205,8 +207,8 @@ def final_validate_config(config):
         if CONF_AXIS_SIGN not in config:
             config[CONF_AXIS_SIGN] = 0x06
 
-    if variant == "QMC5883P" and config.get(CONF_ADDRESS) == 0x0D:
-        config[CONF_ADDRESS] = 0x2C
+        if config.get(CONF_ADDRESS) == 0x0D:
+            config[CONF_ADDRESS] = 0x2C
 
     return config
 
@@ -224,10 +226,12 @@ async def to_code(config):
     cg.add(var.set_datarate(config[CONF_DATA_RATE]))
     cg.add(var.set_range(config[CONF_RANGE]))
 
-    if config[CONF_VARIANT] == "QMC5883P":
+    if str(config[CONF_VARIANT]) == "QMC5883P":
         cg.add(var.set_noise_level(config[CONF_NOISE_LEVEL]))
         cg.add(
-            var.set_set_reset_mode(QMC5883P_SET_RESET_MODES[config[CONF_SET_RESET_MODE]])
+            var.set_set_reset_mode(
+                QMC5883P_SET_RESET_MODES[config[CONF_SET_RESET_MODE]]
+            )
         )
         cg.add(var.set_axis_sign(config[CONF_AXIS_SIGN]))
 
