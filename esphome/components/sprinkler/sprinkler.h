@@ -19,6 +19,7 @@ enum SprinklerState : uint8_t {
   STARTING,  // system/valve is starting/"half open" -- either pump or valve is on, but the remaining pump/valve is not
   ACTIVE,    // system/valve is running its cycle
   STOPPING,  // system/valve is stopping/"half open" -- either pump or valve is on, but the remaining pump/valve is not
+  SOAKING,   // system is resting between cycles
   BYPASS     // used by SprinklerValveOperator to ignore the instance checking pump status
 };
 
@@ -241,6 +242,12 @@ class Sprinkler : public Component {
   /// set how long the controller should wait to activate a valve after next_valve() or previous_valve() is called
   void set_manual_selection_delay(uint32_t manual_selection_delay);
 
+  /// set the maximum allowable consecutive run time for any single zone cycle
+  void set_max_cycle_duration(uint32_t max_cycle_duration);
+
+  /// set the required minimum rest duration before a zone can be watered again
+  void set_soak_duration(uint32_t soak_duration);
+
   /// set how long the valve should remain on/open. run_duration is time in seconds
   void set_valve_run_duration(optional<size_t> valve_number, optional<uint32_t> run_duration);
 
@@ -439,6 +446,9 @@ class Sprinkler : public Component {
   /// resets the cycle state for all valves
   void reset_cycle_states_();
 
+  /// resets the cycle and soak state for the controller
+  void reset_cycle_soak_state_();
+
   /// make a request of the state machine
   void fsm_request_(size_t requested_valve, uint32_t requested_run_duration = 0);
 
@@ -541,6 +551,27 @@ class Sprinkler : public Component {
 
   /// Sprinkler valve run time multiplier value
   float multiplier_{1.0};
+
+  /// maximum allowable consecutive run time for any single zone cycle
+  uint32_t max_cycle_duration_{0};
+
+  /// required minimum rest duration before a zone can be watered again
+  uint32_t soak_duration_{0};
+
+  /// total number of micro-passes
+  uint32_t total_cycle_passes_{1};
+
+  /// current micro-pass
+  uint32_t current_cycle_pass_{0};
+
+  /// internally used fractional multiplier to scale down run times for cycle and soak passes
+  float internal_fractional_multiplier_{1.0f};
+
+  /// timestamp when the first watering in a pass ends
+  uint32_t rolling_soak_timestamp_{0};
+
+  /// true if rolling_soak_timestamp_ is valid for the current pass
+  bool rolling_soak_timestamp_valid_{false};
 
   /// Queue of valves to activate next, regardless of auto-advance
   std::vector<SprinklerQueueItem> queued_valves_;
