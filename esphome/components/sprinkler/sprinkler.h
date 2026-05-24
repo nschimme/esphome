@@ -15,12 +15,12 @@ inline constexpr const char *MIN_STR = "min";
 
 enum SprinklerState : uint8_t {
   // NOTE: these states are used by both SprinklerValveOperator and Sprinkler (the controller)!
-  IDLE,      // system/valve is off
-  STARTING,  // system/valve is starting/"half open" -- either pump or valve is on, but the remaining pump/valve is not
-  ACTIVE,    // system/valve is running its cycle
-  STOPPING,  // system/valve is stopping/"half open" -- either pump or valve is on, but the remaining pump/valve is not
-  SOAKING,   // system is resting between cycles
-  BYPASS     // used by SprinklerValveOperator to ignore the instance checking pump status
+  IDLE,       // system/valve is off
+  STARTING,   // system/valve is starting/"half open" -- either pump or valve is on, but the remaining pump/valve is not
+  ACTIVE,     // system/valve is running its cycle
+  STOPPING,   // system/valve is stopping/"half open" -- either pump or valve is on, but the remaining pump/valve is not
+  SOAKING,    // system is resting between cycles
+  BYPASS      // used by SprinklerValveOperator to ignore the instance checking pump status
 };
 
 enum SprinklerTimerIndex : uint8_t {
@@ -35,6 +35,7 @@ enum SprinklerValveRunRequestOrigin : uint8_t {
 };
 
 class Sprinkler;                  // this component
+class SprinklerCycleSoakHandler;    // manages the "Cycle and Soak" logic
 class SprinklerControllerNumber;  // number components that appear in the front end; based on number core
 class SprinklerControllerSwitch;  // switches that appear in the front end; based on switch core
 class SprinklerValveOperator;     // manages all switching on/off of valves and associated pumps
@@ -147,6 +148,36 @@ class SprinklerValveOperator {
   Sprinkler *controller_{nullptr};
   SprinklerValve *valve_{nullptr};
   SprinklerState state_{IDLE};
+};
+
+class SprinklerCycleSoakHandler {
+ public:
+  void set_max_cycle_duration(uint32_t duration) { this->max_cycle_duration_ = duration; }
+  void set_soak_duration(uint32_t duration) { this->soak_duration_ = duration; }
+
+  void start_full_cycle(uint32_t max_runtime, float user_multiplier);
+  void reset();
+  void record_valve_finished(SprinklerValveOperator *vo);
+  uint32_t calculate_soak_delay_ms();
+  void advance_pass();
+  uint32_t estimate_soak_time_(Sprinkler *controller);
+
+  float get_multiplier() const { return this->internal_multiplier_; }
+  bool is_active() const { return this->total_passes_ > 1; }
+  bool has_more_passes() const { return this->current_pass_ < this->total_passes_ - 1; }
+  uint32_t current_pass() const { return this->current_pass_; }
+  uint32_t total_passes() const { return this->total_passes_; }
+  bool anchor_valid() const { return this->anchor_valid_; }
+  uint32_t anchor_millis() const { return this->anchor_millis_; }
+
+ protected:
+  uint32_t max_cycle_duration_{0};
+  uint32_t soak_duration_{0};
+  uint32_t total_passes_{1};
+  uint32_t current_pass_{0};
+  float internal_multiplier_{1.0f};
+  uint32_t anchor_millis_{0};
+  bool anchor_valid_{false};
 };
 
 class SprinklerValveRunRequest {
@@ -357,6 +388,10 @@ class Sprinkler : public Component {
   /// returns true if valve number is valid
   bool is_a_valid_valve(size_t valve_number);
 
+  /// returns the number of the next valve in the vector or nullopt if no valves match criteria
+  optional<size_t> next_valve_number_(optional<size_t> first_valve = nullopt, bool include_disabled = true,
+                                      bool include_complete = true);
+
   /// returns true if the pump the pointer points to is in use
   bool pump_in_use(switch_::Switch *pump_switch);
 
@@ -412,10 +447,6 @@ class Sprinkler : public Component {
   /// returns true if valve's cycle is flagged as complete
   bool valve_cycle_complete_(size_t valve_number);
 
-  /// returns the number of the next valve in the vector or nullopt if no valves match criteria
-  optional<size_t> next_valve_number_(optional<size_t> first_valve = nullopt, bool include_disabled = true,
-                                      bool include_complete = true);
-
   /// returns the number of the previous valve in the vector or nullopt if no valves match criteria
   optional<size_t> previous_valve_number_(optional<size_t> first_valve = nullopt, bool include_disabled = true,
                                           bool include_complete = true);
@@ -433,9 +464,6 @@ class Sprinkler : public Component {
   /// returns true if any valve is enabled
   bool any_valve_is_enabled_();
 
-  /// returns an estimate of the total soak duration required for a full cycle
-  uint32_t estimate_soak_time_();
-
   /// loads an available SprinklerValveOperator (valve_op_) based on req and starts it (switches it on).
   /// NOTE: if run_duration is zero, the valve's run_duration will be set based on the valve's configuration.
   void start_valve_(SprinklerValveRunRequest *req);
@@ -448,9 +476,6 @@ class Sprinkler : public Component {
 
   /// resets the cycle state for all valves
   void reset_cycle_states_();
-
-  /// resets the cycle and soak state for the controller
-  void reset_cycle_soak_state_();
 
   /// make a request of the state machine
   void fsm_request_(size_t requested_valve, uint32_t requested_run_duration = 0);
@@ -555,26 +580,8 @@ class Sprinkler : public Component {
   /// Sprinkler valve run time multiplier value
   float multiplier_{1.0};
 
-  /// maximum allowable consecutive run time for any single zone cycle
-  uint32_t max_cycle_duration_{0};
-
-  /// required minimum rest duration before a zone can be watered again
-  uint32_t soak_duration_{0};
-
-  /// total number of micro-passes
-  uint32_t total_cycle_passes_{1};
-
-  /// current micro-pass
-  uint32_t current_cycle_pass_{0};
-
-  /// internally used fractional multiplier to scale down run times for cycle and soak passes
-  float internal_fractional_multiplier_{1.0f};
-
-  /// monotonic millis() when the first watering in a pass ends
-  uint32_t rolling_soak_start_millis_{0};
-
-  /// true if rolling_soak_start_millis_ is valid for the current pass
-  bool rolling_soak_anchor_valid_{false};
+  /// Handler for "Cycle and Soak" logic
+  SprinklerCycleSoakHandler cycle_soak_handler_;
 
   /// Queue of valves to activate next, regardless of auto-advance
   std::vector<SprinklerQueueItem> queued_valves_;
