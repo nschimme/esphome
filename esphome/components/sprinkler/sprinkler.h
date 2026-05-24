@@ -433,6 +433,9 @@ class Sprinkler : public Component {
   /// returns true if any valve is enabled
   bool any_valve_is_enabled_();
 
+  /// returns an estimate of the total soak duration required for a full cycle
+  uint32_t estimate_soak_time_();
+
   /// loads an available SprinklerValveOperator (valve_op_) based on req and starts it (switches it on).
   /// NOTE: if run_duration is zero, the valve's run_duration will be set based on the valve's configuration.
   void start_valve_(SprinklerValveRunRequest *req);
