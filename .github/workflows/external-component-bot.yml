@@ -12,6 +12,7 @@ jobs:
   external-comment:
     name: External component comment
     runs-on: ubuntu-latest
+    if: vars.ESPHOME_GITHUB_APP_CLIENT_ID != ''
     steps:
       - name: Generate a token
         id: generate-token
