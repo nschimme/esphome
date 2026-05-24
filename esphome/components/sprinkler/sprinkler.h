@@ -464,6 +464,9 @@ class Sprinkler : public Component {
   /// starts up the system from IDLE state
   void fsm_transition_from_shutdown_();
 
+  /// starts a valve from a run request
+  void start_next_valve_from_req_();
+
   /// transitions from ACTIVE state to ACTIVE (as in, next valve) or to a SHUTDOWN or IDLE state
   void fsm_transition_from_valve_run_();
 
