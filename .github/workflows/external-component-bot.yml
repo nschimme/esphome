@@ -12,7 +12,6 @@ jobs:
   external-comment:
     name: External component comment
     runs-on: ubuntu-latest
-    if: github.repository == 'esphome/esphome'
     steps:
       - name: Generate a token
         id: generate-token

@@ -44,8 +44,6 @@ sprinkler:
   - id: yard_sprinkler_ctrlr
     main_switch: Yard Sprinklers
     auto_advance_switch: Yard Sprinklers Auto Advance
-    max_cycle_duration: 30s
-    soak_duration: 1min
     reverse_switch: Yard Sprinklers Reverse
     pump_start_pump_delay: 2s
     pump_stop_valve_delay: 4s

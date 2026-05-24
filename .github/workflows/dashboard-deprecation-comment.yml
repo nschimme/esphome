@@ -17,7 +17,7 @@ jobs:
     # include dashboard changes that have already been reviewed once.
     # The bot's purpose is to warn new contributors before they invest
     # time -- that only applies to PRs entering dev.
-    if: github.repository == 'esphome/esphome' && github.event.pull_request.base.ref == 'dev'
+    if: github.event.pull_request.base.ref == 'dev'
     steps:
       - name: Generate a token
         id: generate-token

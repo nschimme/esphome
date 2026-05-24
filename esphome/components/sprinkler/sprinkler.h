@@ -449,6 +449,12 @@ class Sprinkler : public Component {
   /// resets cycle and soak bookkeeping fields
   void reset_cycle_bookkeeping_();
 
+  /// helper to calculate cycle time with overlap/delay
+  uint32_t calculate_cycle_time_(uint32_t total_duration, uint32_t valve_count);
+
+  /// starts a valve from a run request
+  void start_next_valve_from_req_();
+
   /// make a request of the state machine
   void fsm_request_(size_t requested_valve, uint32_t requested_run_duration = 0);
 
@@ -464,14 +470,8 @@ class Sprinkler : public Component {
   /// starts up the system from IDLE state
   void fsm_transition_from_shutdown_();
 
-  /// starts a valve from a run request
-  void start_next_valve_from_req_();
-
   /// transitions from ACTIVE state to ACTIVE (as in, next valve) or to a SHUTDOWN or IDLE state
   void fsm_transition_from_valve_run_();
-
-  /// starts up the system from IDLE state
-  void fsm_transition_to_shutdown_();
 
   /// log error message when a method is called but standby is enabled
   void log_standby_warning_(const LogString *method_name);
