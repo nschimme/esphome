@@ -15,12 +15,12 @@ inline constexpr const char *MIN_STR = "min";
 
 enum SprinklerState : uint8_t {
   // NOTE: these states are used by both SprinklerValveOperator and Sprinkler (the controller)!
-  IDLE,       // system/valve is off
-  STARTING,   // system/valve is starting/"half open" -- either pump or valve is on, but the remaining pump/valve is not
-  ACTIVE,     // system/valve is running its cycle
-  STOPPING,   // system/valve is stopping/"half open" -- either pump or valve is on, but the remaining pump/valve is not
-  SOAKING,    // system is resting between cycles
-  BYPASS      // used by SprinklerValveOperator to ignore the instance checking pump status
+  IDLE,      // system/valve is off
+  STARTING,  // system/valve is starting/"half open" -- either pump or valve is on, but the remaining pump/valve is not
+  ACTIVE,    // system/valve is running its cycle
+  STOPPING,  // system/valve is stopping/"half open" -- either pump or valve is on, but the remaining pump/valve is not
+  SOAKING,   // system is resting between cycles
+  BYPASS     // used by SprinklerValveOperator to ignore the instance checking pump status
 };
 
 enum SprinklerTimerIndex : uint8_t {
@@ -35,7 +35,7 @@ enum SprinklerValveRunRequestOrigin : uint8_t {
 };
 
 class Sprinkler;                  // this component
-class SprinklerCycleSoakHandler;    // manages the "Cycle and Soak" logic
+class SprinklerCycleSoakHandler;  // manages the "Cycle and Soak" logic
 class SprinklerControllerNumber;  // number components that appear in the front end; based on number core
 class SprinklerControllerSwitch;  // switches that appear in the front end; based on switch core
 class SprinklerValveOperator;     // manages all switching on/off of valves and associated pumps
@@ -160,7 +160,7 @@ class SprinklerCycleSoakHandler {
   void record_valve_finished(SprinklerValveOperator *vo);
   uint32_t calculate_soak_delay_ms();
   void advance_pass();
-  uint32_t estimate_soak_time_(Sprinkler *controller);
+  uint32_t estimate_soak_time(Sprinkler *controller);
 
   float get_multiplier() const { return this->internal_multiplier_; }
   bool is_active() const { return this->total_passes_ > 1; }
@@ -389,8 +389,8 @@ class Sprinkler : public Component {
   bool is_a_valid_valve(size_t valve_number);
 
   /// returns the number of the next valve in the vector or nullopt if no valves match criteria
-  optional<size_t> next_valve_number_(optional<size_t> first_valve = nullopt, bool include_disabled = true,
-                                      bool include_complete = true);
+  optional<size_t> next_valve_number(optional<size_t> first_valve = nullopt, bool include_disabled = true,
+                                     bool include_complete = true);
 
   /// returns true if the pump the pointer points to is in use
   bool pump_in_use(switch_::Switch *pump_switch);
