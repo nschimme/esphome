@@ -746,6 +746,7 @@ void Sprinkler::start_from_queue() {
     return;  // if there is already a valve running from the queue, do nothing
   }
 
+  this->reset_cycle_soak_state_();
   this->set_auto_advance(false);
   this->set_queue_enable(true);
 
@@ -790,6 +791,7 @@ void Sprinkler::start_single_valve(const optional<size_t> valve_number, optional
     return;
   }
 
+  this->reset_cycle_soak_state_();
   this->set_auto_advance(false);
   this->set_queue_enable(false);
 
@@ -1160,7 +1162,17 @@ optional<uint32_t> Sprinkler::time_remaining_current_operation() {
     return nullopt;
   }
 
-  auto total_time_remaining = this->time_remaining_active_valve().value_or(0);
+  uint32_t total_time_remaining = 0;
+  if (this->state_ == SOAKING) {
+    uint32_t elapsed = millis() - this->timer_[sprinkler::TIMER_SM].start_time;
+    uint32_t duration = this->timer_[sprinkler::TIMER_SM].time;
+    if (duration > elapsed) {
+      total_time_remaining = (duration - elapsed) / 1000;
+    }
+  } else {
+    total_time_remaining = this->time_remaining_active_valve().value_or(0);
+  }
+
   if (this->auto_advance()) {
     total_time_remaining += this->total_cycle_time_enabled_incomplete_valves();
 
@@ -1171,9 +1183,8 @@ optional<uint32_t> Sprinkler::time_remaining_current_operation() {
       first_valve_runtime = this->valve_run_duration_adjusted(*first_valve);
     }
 
-    uint32_t other_valves_runtime = total_enabled_runtime > first_valve_runtime
-                                        ? total_enabled_runtime - first_valve_runtime
-                                        : 0;
+    uint32_t other_valves_runtime =
+        total_enabled_runtime > first_valve_runtime ? total_enabled_runtime - first_valve_runtime : 0;
 
     uint32_t soak_per_pass = 0;
     if (this->soak_duration_ > other_valves_runtime) {
@@ -1622,7 +1633,7 @@ void Sprinkler::fsm_transition_from_valve_run_() {
     bool new_pass = (this->next_req_.request_is_from() == CYCLE) &&
                     (this->current_cycle_pass_ != old_pass || this->repeat_count_ != old_repeat);
 
-    if (new_pass) {
+    if (new_pass && this->rolling_soak_timestamp_valid_) {
       uint32_t elapsed_soak = millis() - this->rolling_soak_timestamp_;
       if (elapsed_soak < this->soak_duration_ * 1000) {
         ESP_LOGD(TAG, "Soaking for %" PRIu32 " seconds", this->soak_duration_ - (elapsed_soak / 1000));
