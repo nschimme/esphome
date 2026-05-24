@@ -669,7 +669,8 @@ uint32_t Sprinkler::valve_run_duration_adjusted(const size_t valve_number) {
   if (this->is_a_valid_valve(valve_number)) {
     run_duration = this->valve_run_duration(valve_number);
   }
-  run_duration = static_cast<uint32_t>(roundf(run_duration * this->multiplier() * this->internal_fractional_multiplier_));
+  run_duration =
+      static_cast<uint32_t>(roundf(run_duration * this->multiplier() * this->internal_fractional_multiplier_));
   // run_duration must not be less than any of these
   if ((run_duration < this->start_delay_) || (run_duration < this->stop_delay_) ||
       (run_duration < this->switching_delay_.value_or(0) * 2)) {
@@ -1181,6 +1182,7 @@ optional<uint32_t> Sprinkler::time_remaining_current_operation() {
   }
 
   if (this->auto_advance()) {
+    auto target_repeats = this->repeat();
     // 1. Time remaining in CURRENT fractional cycle pass
     total_time_remaining += this->total_cycle_time_enabled_incomplete_valves();
 
@@ -1189,7 +1191,7 @@ optional<uint32_t> Sprinkler::time_remaining_current_operation() {
       uint32_t cycles_left = this->n_cycles_ - (this->current_fractional_cycle_ + 1);
       total_time_remaining += (cycles_left * this->total_cycle_time_enabled_valves());
       total_time_remaining += (cycles_left * this->soak_duration_);
-    } else if (this->repeat().has_value() && this->repeat().value() > this->repeat_count_ && this->soak_duration_ > 0) {
+    } else if (target_repeats.has_value() && target_repeats.value() > this->repeat_count_ && this->soak_duration_ > 0) {
       // If no more fractional cycles in this pass, but there are more repeats,
       // and we are NOT in SOAKING state (which we already accounted for),
       // we might still have a soak before the next repeat.
@@ -1199,8 +1201,8 @@ optional<uint32_t> Sprinkler::time_remaining_current_operation() {
     }
 
     // 3. Time for all FUTURE macro repeat passes
-    if (this->repeat().has_value() && this->repeat().value() > this->repeat_count_) {
-      uint32_t repeats_left = this->repeat().value() - this->repeat_count_;
+    if (target_repeats.has_value() && target_repeats.value() > this->repeat_count_) {
+      uint32_t repeats_left = target_repeats.value() - this->repeat_count_;
       // Each repeat has N cycles
       total_time_remaining += (repeats_left * this->n_cycles_ * this->total_cycle_time_enabled_valves());
       // Each repeat has N soak durations, except the very last pass which has N-1 soaks
@@ -1590,7 +1592,8 @@ void Sprinkler::fsm_transition_from_valve_run_() {
       this->start_timer_(sprinkler::TIMER_SM);
       return;
     } else if (this->next_req_.has_request() && this->next_req_.request_is_from() == CYCLE) {
-      ESP_LOGD(TAG, "Full cycle pass complete; soaking for %" PRIu32 " seconds before next repeat", this->soak_duration_);
+      ESP_LOGD(TAG, "Full cycle pass complete; soaking for %" PRIu32 " seconds before next repeat",
+               this->soak_duration_);
       // We are transitioning to a soak BEFORE a repeat.
       // load_next_valve_run_request_ already incremented repeat_count_ when it loaded the first valve of the next repeat into next_req_.
       // Since we are resetting next_req_ to soak, we must decrement repeat_count_ so that the subsequent
@@ -1692,7 +1695,8 @@ const LogString *Sprinkler::req_as_str_(SprinklerValveRunRequestOrigin origin) {
                                                     SprinklerRequestOriginStrings::LAST_INDEX);
 }
 
-// Sprinkler state strings indexed by SprinklerState enum (0-5): IDLE, STARTING, ACTIVE, STOPPING, BYPASS, SOAKING
+// Sprinkler state strings indexed by SprinklerState enum (0-6): IDLE, STARTING, ACTIVE, STOPPING, BYPASS, SOAKING,
+// UNKNOWN
 PROGMEM_STRING_TABLE(SprinklerStateStrings, "IDLE", "STARTING", "ACTIVE", "STOPPING", "BYPASS", "SOAKING", "UNKNOWN");
 
 const LogString *Sprinkler::state_as_str_(SprinklerState state) {
@@ -1754,8 +1758,9 @@ void Sprinkler::calculate_n_cycles_() {
   if (max_run_duration > this->max_cycle_duration_) {
     this->n_cycles_ = (max_run_duration + this->max_cycle_duration_ - 1) / this->max_cycle_duration_;
     this->internal_fractional_multiplier_ = 1.0f / this->n_cycles_;
-    ESP_LOGD(TAG, "Cycle & Soak: Max duration %" PRIu32 "s exceeds threshold %" PRIu32 "s. Splitting into %" PRIu32
-                  " cycles with multiplier %.3f",
+    ESP_LOGD(TAG,
+             "Cycle & Soak: Max duration %" PRIu32 "s exceeds threshold %" PRIu32 "s. Splitting into %" PRIu32
+             " cycles with multiplier %.3f",
              max_run_duration, this->max_cycle_duration_, this->n_cycles_, this->internal_fractional_multiplier_);
   }
 }
