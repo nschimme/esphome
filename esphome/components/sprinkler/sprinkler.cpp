@@ -829,6 +829,7 @@ void Sprinkler::next_valve() {
   if (this->state_ == SOAKING) {
     this->cancel_timer_(sprinkler::TIMER_SM);
     this->fsm_transition_();
+    return;
   }
 
   this->manual_valve_ = this->next_valve_number_(
@@ -862,6 +863,7 @@ void Sprinkler::previous_valve() {
   if (this->state_ == SOAKING) {
     this->cancel_timer_(sprinkler::TIMER_SM);
     this->fsm_transition_();
+    return;
   }
 
   this->manual_valve_ =

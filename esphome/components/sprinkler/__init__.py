@@ -725,10 +725,7 @@ async def to_code(config):
             )
 
         if CONF_SOAK_DURATION in sprinkler_controller:
-            cg.add(
-                var.set_soak_duration(sprinkler_controller[CONF_SOAK_DURATION])
-            )
-
+            cg.add(var.set_soak_duration(sprinkler_controller[CONF_SOAK_DURATION]))
         if CONF_REPEAT in sprinkler_controller:
             cg.add(var.set_repeat(sprinkler_controller[CONF_REPEAT]))
 
