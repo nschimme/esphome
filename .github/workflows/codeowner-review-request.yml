@@ -25,7 +25,7 @@ permissions:
 jobs:
   request-codeowner-reviews:
     name: Run
-    if: ${{ github.repository == 'esphome/esphome' && vars.ESPHOME_GITHUB_APP_CLIENT_ID != '' && !github.event.pull_request.draft }}
+    if: ${{ github.repository == 'esphome/esphome' && !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout base branch

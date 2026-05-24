@@ -896,9 +896,7 @@ void Sprinkler::shutdown(bool clear_queue) {
   this->active_req_.reset();
   this->manual_valve_.reset();
   this->next_req_.reset();
-  this->internal_fractional_multiplier_ = 1.0f;
-  this->n_cycles_ = 1;
-  this->current_fractional_cycle_ = 0;
+  this->reset_cycle_bookkeeping_();
   for (auto &vo : this->valve_op_) {
     vo.stop();
   }
@@ -1465,6 +1463,12 @@ void Sprinkler::reset_cycle_states_() {
   }
 }
 
+void Sprinkler::reset_cycle_bookkeeping_() {
+  this->internal_fractional_multiplier_ = 1.0f;
+  this->n_cycles_ = 1;
+  this->current_fractional_cycle_ = 0;
+}
+
 void Sprinkler::fsm_request_(size_t requested_valve, uint32_t requested_run_duration) {
   this->next_req_.set_valve(requested_valve);
   this->next_req_.set_run_duration(requested_run_duration);
@@ -1521,9 +1525,7 @@ void Sprinkler::fsm_transition_() {
       this->manual_valve_.reset();
       this->all_valves_off_(true);
       this->state_ = IDLE;
-      this->internal_fractional_multiplier_ = 1.0f;
-      this->n_cycles_ = 1;
-      this->current_fractional_cycle_ = 0;
+      this->reset_cycle_bookkeeping_();
       break;
 
     default:
@@ -1589,6 +1591,10 @@ void Sprinkler::fsm_transition_from_valve_run_() {
       return;
     } else if (this->next_req_.has_request() && this->next_req_.request_is_from() == CYCLE) {
       ESP_LOGD(TAG, "Full cycle pass complete; soaking for %" PRIu32 " seconds before next repeat", this->soak_duration_);
+      // We are transitioning to a soak BEFORE a repeat.
+      // load_next_valve_run_request_ already incremented repeat_count_ when it loaded the first valve of the next repeat into next_req_.
+      // Since we are resetting next_req_ to soak, we must decrement repeat_count_ so that the subsequent
+      // load_next_valve_run_request_ (after the soak) correctly identifies and increments the repeat again.
       this->repeat_count_--;
       this->next_req_.reset();
       this->state_ = SOAKING;
@@ -1731,9 +1737,7 @@ void Sprinkler::valve_selection_callback_() {
 }
 
 void Sprinkler::calculate_n_cycles_() {
-  this->n_cycles_ = 1;
-  this->internal_fractional_multiplier_ = 1.0f;
-  this->current_fractional_cycle_ = 0;
+  this->reset_cycle_bookkeeping_();
 
   if (this->max_cycle_duration_ == 0) {
     return;

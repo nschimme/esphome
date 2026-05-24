@@ -446,6 +446,9 @@ class Sprinkler : public Component {
   /// resets the cycle state for all valves
   void reset_cycle_states_();
 
+  /// resets cycle and soak bookkeeping fields
+  void reset_cycle_bookkeeping_();
+
   /// make a request of the state machine
   void fsm_request_(size_t requested_valve, uint32_t requested_run_duration = 0);
 
