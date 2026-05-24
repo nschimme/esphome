@@ -19,7 +19,8 @@ enum SprinklerState : uint8_t {
   STARTING,  // system/valve is starting/"half open" -- either pump or valve is on, but the remaining pump/valve is not
   ACTIVE,    // system/valve is running its cycle
   STOPPING,  // system/valve is stopping/"half open" -- either pump or valve is on, but the remaining pump/valve is not
-  BYPASS     // used by SprinklerValveOperator to ignore the instance checking pump status
+  BYPASS,    // used by SprinklerValveOperator to ignore the instance checking pump status
+  SOAKING    // system is resting between fractional cycles
 };
 
 enum SprinklerTimerIndex : uint8_t {
@@ -241,6 +242,12 @@ class Sprinkler : public Component {
   /// set how long the controller should wait to activate a valve after next_valve() or previous_valve() is called
   void set_manual_selection_delay(uint32_t manual_selection_delay);
 
+  /// set the maximum amount of time any valve should run during a cycle
+  void set_max_cycle_duration(uint32_t max_cycle_duration);
+
+  /// set the amount of time to soak between cycles
+  void set_soak_duration(uint32_t soak_duration);
+
   /// set how long the valve should remain on/open. run_duration is time in seconds
   void set_valve_run_duration(optional<size_t> valve_number, optional<uint32_t> run_duration);
 
@@ -439,6 +446,15 @@ class Sprinkler : public Component {
   /// resets the cycle state for all valves
   void reset_cycle_states_();
 
+  /// resets cycle and soak bookkeeping fields
+  void reset_cycle_bookkeeping_();
+
+  /// helper to calculate cycle time with overlap/delay
+  uint32_t calculate_cycle_time_(uint32_t total_duration, uint32_t valve_count);
+
+  /// starts a valve from a run request
+  void start_next_valve_from_req_();
+
   /// make a request of the state machine
   void fsm_request_(size_t requested_valve, uint32_t requested_run_duration = 0);
 
@@ -448,14 +464,14 @@ class Sprinkler : public Component {
   /// advance controller state, advancing to target_valve if provided
   void fsm_transition_();
 
+  /// transitions from SOAKING state to ACTIVE (as in, next valve) or to a SHUTDOWN or IDLE state
+  void fsm_transition_from_soaking_();
+
   /// starts up the system from IDLE state
   void fsm_transition_from_shutdown_();
 
   /// transitions from ACTIVE state to ACTIVE (as in, next valve) or to a SHUTDOWN or IDLE state
   void fsm_transition_from_valve_run_();
-
-  /// starts up the system from IDLE state
-  void fsm_transition_to_shutdown_();
 
   /// log error message when a method is called but standby is enabled
   void log_standby_warning_(const LogString *method_name);
@@ -484,6 +500,9 @@ class Sprinkler : public Component {
   void valve_selection_callback_();
   void sm_timer_callback_();
 
+  /// Calculate the number of fractional cycles required for the current pass
+  void calculate_n_cycles_();
+
   /// Maximum allowed queue size
   const uint8_t max_queue_size_{100};
 
@@ -508,6 +527,21 @@ class Sprinkler : public Component {
 
   /// Sprinkler controller state
   SprinklerState state_{IDLE};
+
+  /// The maximum duration a valve can run before a soak is required
+  uint32_t max_cycle_duration_{0};
+
+  /// The duration to soak between cycles
+  uint32_t soak_duration_{0};
+
+  /// The multiplier used to scale valve run times for fractional cycles
+  float internal_fractional_multiplier_{1.0f};
+
+  /// The number of fractional cycles required for the current pass
+  uint32_t n_cycles_{1};
+
+  /// The current fractional cycle index
+  uint32_t current_fractional_cycle_{0};
 
   /// The valve run request that is currently active
   SprinklerValveRunRequest active_req_;
