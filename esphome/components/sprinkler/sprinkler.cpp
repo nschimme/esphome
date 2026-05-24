@@ -1375,7 +1375,7 @@ void Sprinkler::load_next_valve_run_request_(const optional<size_t> first_valve)
           this->valve_run_duration_adjusted(this->next_valve_number_in_cycle_(first_valve).value_or(0)));
     } else if (this->current_cycle_pass_ < this->total_cycle_passes_ - 1) {
       this->current_cycle_pass_++;
-      this->rolling_soak_timestamp_valid_ = false;
+      this->rolling_soak_anchor_valid_ = false;
       this->reset_cycle_states_();
       if (this->next_valve_number_in_cycle_().has_value()) {
         this->next_req_.set_valve(this->next_valve_number_in_cycle_().value_or(0));
@@ -1474,7 +1474,7 @@ void Sprinkler::prep_full_cycle_() {
   }
   this->internal_fractional_multiplier_ = 1.0f / (float) this->total_cycle_passes_;
   this->current_cycle_pass_ = 0;
-  this->rolling_soak_timestamp_valid_ = false;
+  this->rolling_soak_anchor_valid_ = false;
 
   this->reset_cycle_states_();
 }
@@ -1489,7 +1489,7 @@ void Sprinkler::reset_cycle_soak_state_() {
   this->internal_fractional_multiplier_ = 1.0f;
   this->total_cycle_passes_ = 1;
   this->current_cycle_pass_ = 0;
-  this->rolling_soak_timestamp_valid_ = false;
+  this->rolling_soak_anchor_valid_ = false;
 }
 
 void Sprinkler::fsm_request_(size_t requested_valve, uint32_t requested_run_duration) {
@@ -1590,13 +1590,13 @@ void Sprinkler::fsm_transition_from_valve_run_() {
   if (!this->timer_active_(sprinkler::TIMER_SM)) {  // only flag the valve as "complete" if the timer finished
     if ((this->active_req_.request_is_from() == CYCLE) || (this->active_req_.request_is_from() == USER)) {
       this->mark_valve_cycle_complete_(this->active_req_.valve());
-      if (!this->rolling_soak_timestamp_valid_ && this->active_req_.has_valve_operator()) {
+      if (!this->rolling_soak_anchor_valid_ && this->active_req_.has_valve_operator()) {
         auto *vo = this->active_req_.valve_operator();
         uint32_t run_duration = vo->run_duration();
         uint32_t time_remaining = vo->time_remaining();
         if (run_duration - time_remaining >= 2) {
-          this->rolling_soak_timestamp_ = millis();
-          this->rolling_soak_timestamp_valid_ = true;
+          this->rolling_soak_start_millis_ = millis();
+          this->rolling_soak_anchor_valid_ = true;
         }
       }
     }
@@ -1616,8 +1616,8 @@ void Sprinkler::fsm_transition_from_valve_run_() {
     bool new_pass = (this->next_req_.request_is_from() == CYCLE) &&
                     (this->current_cycle_pass_ != old_pass || this->repeat_count_ != old_repeat);
 
-    if (new_pass && this->rolling_soak_timestamp_valid_) {
-      uint32_t elapsed_soak = millis() - this->rolling_soak_timestamp_;
+    if (new_pass && this->rolling_soak_anchor_valid_) {
+      uint32_t elapsed_soak = millis() - this->rolling_soak_start_millis_;
       if (elapsed_soak < this->soak_duration_ * 1000) {
         ESP_LOGD(TAG, "Soaking for %" PRIu32 " seconds", this->soak_duration_ - (elapsed_soak / 1000));
         this->state_ = SOAKING;

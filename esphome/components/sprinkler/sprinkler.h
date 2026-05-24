@@ -570,11 +570,11 @@ class Sprinkler : public Component {
   /// internally used fractional multiplier to scale down run times for cycle and soak passes
   float internal_fractional_multiplier_{1.0f};
 
-  /// timestamp when the first watering in a pass ends
-  uint32_t rolling_soak_timestamp_{0};
+  /// monotonic millis() when the first watering in a pass ends
+  uint32_t rolling_soak_start_millis_{0};
 
-  /// true if rolling_soak_timestamp_ is valid for the current pass
-  bool rolling_soak_timestamp_valid_{false};
+  /// true if rolling_soak_start_millis_ is valid for the current pass
+  bool rolling_soak_anchor_valid_{false};
 
   /// Queue of valves to activate next, regardless of auto-advance
   std::vector<SprinklerQueueItem> queued_valves_;
