@@ -213,7 +213,7 @@ jobs:
             $(printf '${{ steps.tags.outputs.image }}@sha256:%s ' *)
 
   version-notifier:
-    if: github.repository == 'esphome/esphome' && needs.init.outputs.branch_build == 'false'
+    if: github.repository == 'esphome/esphome' && vars.ESPHOME_GITHUB_APP_CLIENT_ID != '' && needs.init.outputs.branch_build == 'false'
     runs-on: ubuntu-latest
     needs:
       - init

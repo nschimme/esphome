@@ -15,7 +15,7 @@ jobs:
   sync:
     name: Sync Device Classes
     runs-on: ubuntu-latest
-    if: github.repository == 'esphome/esphome'
+    if: github.repository == 'esphome/esphome' && vars.ESPHOME_GITHUB_APP_CLIENT_ID != ''
     steps:
       - name: Generate a token
         id: generate-token
