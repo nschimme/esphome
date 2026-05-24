@@ -19,6 +19,7 @@ enum SprinklerState : uint8_t {
   STARTING,  // system/valve is starting/"half open" -- either pump or valve is on, but the remaining pump/valve is not
   ACTIVE,    // system/valve is running its cycle
   STOPPING,  // system/valve is stopping/"half open" -- either pump or valve is on, but the remaining pump/valve is not
+  SOAKING,   // system is resting between cycles
   BYPASS     // used by SprinklerValveOperator to ignore the instance checking pump status
 };
 
@@ -34,6 +35,7 @@ enum SprinklerValveRunRequestOrigin : uint8_t {
 };
 
 class Sprinkler;                  // this component
+class SprinklerCycleSoakHandler;  // manages the "Cycle and Soak" logic
 class SprinklerControllerNumber;  // number components that appear in the front end; based on number core
 class SprinklerControllerSwitch;  // switches that appear in the front end; based on switch core
 class SprinklerValveOperator;     // manages all switching on/off of valves and associated pumps
@@ -148,6 +150,36 @@ class SprinklerValveOperator {
   SprinklerState state_{IDLE};
 };
 
+class SprinklerCycleSoakHandler {
+ public:
+  void set_max_cycle_duration(uint32_t duration) { this->max_cycle_duration_ = duration; }
+  void set_soak_duration(uint32_t duration) { this->soak_duration_ = duration; }
+
+  void start_full_cycle(uint32_t max_runtime, float user_multiplier);
+  void reset();
+  void record_valve_finished(SprinklerValveOperator *vo);
+  uint32_t calculate_soak_delay_ms();
+  void advance_pass();
+  uint32_t estimate_soak_time(Sprinkler *controller);
+
+  float get_multiplier() const { return this->internal_multiplier_; }
+  bool is_active() const { return this->total_passes_ > 1; }
+  bool has_more_passes() const { return this->current_pass_ < this->total_passes_ - 1; }
+  uint32_t current_pass() const { return this->current_pass_; }
+  uint32_t total_passes() const { return this->total_passes_; }
+  bool anchor_valid() const { return this->anchor_valid_; }
+  uint32_t anchor_millis() const { return this->anchor_millis_; }
+
+ protected:
+  uint32_t max_cycle_duration_{0};
+  uint32_t soak_duration_{0};
+  uint32_t total_passes_{1};
+  uint32_t current_pass_{0};
+  float internal_multiplier_{1.0f};
+  uint32_t anchor_millis_{0};
+  bool anchor_valid_{false};
+};
+
 class SprinklerValveRunRequest {
  public:
   SprinklerValveRunRequest();
@@ -240,6 +272,12 @@ class Sprinkler : public Component {
 
   /// set how long the controller should wait to activate a valve after next_valve() or previous_valve() is called
   void set_manual_selection_delay(uint32_t manual_selection_delay);
+
+  /// set the maximum allowable consecutive run time for any single zone cycle
+  void set_max_cycle_duration(uint32_t max_cycle_duration);
+
+  /// set the required minimum rest duration before a zone can be watered again
+  void set_soak_duration(uint32_t soak_duration);
 
   /// set how long the valve should remain on/open. run_duration is time in seconds
   void set_valve_run_duration(optional<size_t> valve_number, optional<uint32_t> run_duration);
@@ -350,6 +388,10 @@ class Sprinkler : public Component {
   /// returns true if valve number is valid
   bool is_a_valid_valve(size_t valve_number);
 
+  /// returns the number of the next valve in the vector or nullopt if no valves match criteria
+  optional<size_t> next_valve_number(optional<size_t> first_valve = nullopt, bool include_disabled = true,
+                                     bool include_complete = true);
+
   /// returns true if the pump the pointer points to is in use
   bool pump_in_use(switch_::Switch *pump_switch);
 
@@ -404,10 +446,6 @@ class Sprinkler : public Component {
 
   /// returns true if valve's cycle is flagged as complete
   bool valve_cycle_complete_(size_t valve_number);
-
-  /// returns the number of the next valve in the vector or nullopt if no valves match criteria
-  optional<size_t> next_valve_number_(optional<size_t> first_valve = nullopt, bool include_disabled = true,
-                                      bool include_complete = true);
 
   /// returns the number of the previous valve in the vector or nullopt if no valves match criteria
   optional<size_t> previous_valve_number_(optional<size_t> first_valve = nullopt, bool include_disabled = true,
@@ -541,6 +579,9 @@ class Sprinkler : public Component {
 
   /// Sprinkler valve run time multiplier value
   float multiplier_{1.0};
+
+  /// Handler for "Cycle and Soak" logic
+  SprinklerCycleSoakHandler cycle_soak_handler_;
 
   /// Queue of valves to activate next, regardless of auto-advance
   std::vector<SprinklerQueueItem> queued_valves_;
