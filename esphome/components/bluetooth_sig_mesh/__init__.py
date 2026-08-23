@@ -66,7 +66,7 @@ LN882HBluetoothSIGMesh = bluetooth_sig_mesh_ns.class_(
 
 def AUTO_LOAD() -> list[str]:
     if CORE.is_esp32:
-        return ["esp32_ble_tracker", "ble_device_base"]
+        return ["esp32_ble_tracker", "esp32_ble_server", "ble_device_base"]
     if CORE.is_rp2:
         return ["rp2040_ble", "ble_device_base"]
     if CORE.target_platform == PLATFORM_BK72XX:

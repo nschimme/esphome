@@ -321,20 +321,72 @@ void BluetoothSIGMesh::process_network_pdu(const MeshNetworkPDUHeader &hdr, cons
   if (len < 2 || payload == nullptr) {
     return;
   }
+
+  // Lower Transport PDU parsing: byte 0 contains SEG (bit 6), AKF (bit 5), AID (bits 0..4)
+  bool seg = (payload[0] & 0x40) != 0;
+  bool akf = (payload[0] & 0x20) != 0;
+  uint8_t aid = payload[0] & 0x3F;
+
+  if (seg) {
+    ESP_LOGV(TAG, "Segmented Transport PDU received (unsegmented supported)");
+    return;
+  }
+
+  const uint8_t *upper_transport_pdu = payload + 1;
+  size_t upper_transport_len = len - 1;
+
+  uint8_t access_pdu[128] = {0};
+  size_t access_pdu_len = 0;
+
+  if (akf && this->app_key_.is_set) {
+    if (upper_transport_len < 4) {
+      return;
+    }
+    uint8_t app_nonce[13] = {0};
+    app_nonce[0] = 0x01;  // Application Nonce
+    app_nonce[1] = 0x00;  // ASZMIC = 0
+    app_nonce[2] = (hdr.seq >> 16) & 0xFF;
+    app_nonce[3] = (hdr.seq >> 8) & 0xFF;
+    app_nonce[4] = hdr.seq & 0xFF;
+    app_nonce[5] = (hdr.src >> 8) & 0xFF;
+    app_nonce[6] = hdr.src & 0xFF;
+    app_nonce[7] = (hdr.dst >> 8) & 0xFF;
+    app_nonce[8] = hdr.dst & 0xFF;
+    app_nonce[9] = (this->iv_index_ >> 24) & 0xFF;
+    app_nonce[10] = (this->iv_index_ >> 16) & 0xFF;
+    app_nonce[11] = (this->iv_index_ >> 8) & 0xFF;
+    app_nonce[12] = this->iv_index_ & 0xFF;
+
+    size_t mic_len = 4;
+    if (!decrypt_mesh_payload(this->app_key_.bytes.data(), app_nonce, upper_transport_pdu, upper_transport_len,
+                               access_pdu, mic_len)) {
+      ESP_LOGW(TAG, "Upper transport decryption failed from SRC 0x%04X", hdr.src);
+      return;
+    }
+    access_pdu_len = upper_transport_len - mic_len;
+  } else {
+    std::memcpy(access_pdu, upper_transport_pdu, upper_transport_len);
+    access_pdu_len = upper_transport_len;
+  }
+
+  if (access_pdu_len < 1) {
+    return;
+  }
+
   uint16_t opcode = 0;
   size_t opcode_len = 0;
-  if ((payload[0] & 0x80) == 0) {
-    opcode = payload[0];
+  if ((access_pdu[0] & 0x80) == 0) {
+    opcode = access_pdu[0];
     opcode_len = 1;
-  } else if ((payload[0] & 0xC0) == 0x80) {
-    opcode = (static_cast<uint16_t>(payload[0]) << 8) | static_cast<uint16_t>(payload[1]);
+  } else if ((access_pdu[0] & 0xC0) == 0x80) {
+    opcode = (static_cast<uint16_t>(access_pdu[0]) << 8) | static_cast<uint16_t>(access_pdu[1]);
     opcode_len = 2;
   } else {
-    opcode = (static_cast<uint16_t>(payload[0]) << 8) | static_cast<uint16_t>(payload[1]);
+    opcode = (static_cast<uint16_t>(access_pdu[0]) << 8) | static_cast<uint16_t>(access_pdu[1]);
     opcode_len = 3;
   }
 
-  this->process_access_pdu(hdr.src, hdr.dst, opcode, payload + opcode_len, len - opcode_len);
+  this->process_access_pdu(hdr.src, hdr.dst, opcode, access_pdu + opcode_len, access_pdu_len - opcode_len);
 }
 
 void BluetoothSIGMesh::process_access_pdu(uint16_t src, uint16_t dst, uint16_t opcode, const uint8_t *payload,

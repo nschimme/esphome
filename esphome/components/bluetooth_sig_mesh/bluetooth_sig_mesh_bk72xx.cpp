@@ -57,9 +57,6 @@ void BK72XXBluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint1
     raw_adv[3] = static_cast<uint8_t>(framed_pdu.size() + 1);
     raw_adv[4] = MESH_AD_TYPE_MESSAGE;  // 0x2A Mesh Message AD Type
     std::memcpy(raw_adv + 5, framed_pdu.data(), framed_pdu.size());
-
-    bk72xx_ble_tracker::global_bk72xx_ble_tracker->set_adv_data(raw_adv, framed_pdu.size() + 5);
-    bk72xx_ble_tracker::global_bk72xx_ble_tracker->start_adv();
   }
 }
 
