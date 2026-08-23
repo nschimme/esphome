@@ -1,10 +1,6 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.const import (
-    CONF_ID,
-    PLATFORM_BK72XX,
-    PLATFORM_LN882X,
-)
+from esphome.const import CONF_ID, PLATFORM_BK72XX, PLATFORM_LN882X
 from esphome.core import CORE
 from esphome.types import ConfigType
 
