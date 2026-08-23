@@ -4,6 +4,23 @@ esphome:
 esp32:
   board: esp32dev
 
+output:
+  - platform: gpio
+    pin: GPIO2
+    id: output_led
+
+switch:
+  - platform: output
+    name: "Mesh Switch"
+    id: mesh_switch
+    output: output_led
+
+light:
+  - platform: binary
+    name: "Mesh Light"
+    id: mesh_light
+    output: output_led
+
 bluetooth_sig_mesh:
   mesh_role: both
   enable_node: true
@@ -12,5 +29,8 @@ bluetooth_sig_mesh:
   app_key: "ffeeddccbbaa99887766554433221100"
   unicast_address: 0x0002
   elements:
-    - models:
+    - switch_id: mesh_switch
+      light_id: mesh_light
+      models:
         - generic_onoff_server
+        - generic_level_server

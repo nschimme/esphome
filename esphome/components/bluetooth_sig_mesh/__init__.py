@@ -1,6 +1,7 @@
 import esphome.codegen as cg
+from esphome.components import light, switch
 import esphome.config_validation as cv
-from esphome.const import CONF_ID, PLATFORM_BK72XX, PLATFORM_LN882X
+from esphome.const import CONF_ID, CONF_LIGHT_ID, PLATFORM_BK72XX, PLATFORM_LN882X
 from esphome.core import CORE
 from esphome.types import ConfigType
 
@@ -15,6 +16,7 @@ CONF_APP_KEY = "app_key"
 CONF_UNICAST_ADDRESS = "unicast_address"
 CONF_ELEMENTS = "elements"
 CONF_MODELS = "models"
+CONF_SWITCH_ID = "switch_id"
 
 ROLE_NODE = "node"
 ROLE_PROXY = "proxy"
@@ -39,6 +41,8 @@ ELEMENT_SCHEMA = cv.Schema(
         cv.Optional(CONF_MODELS, default=[MODEL_GENERIC_ONOFF_SERVER]): cv.ensure_list(
             cv.enum(MODEL_ENUM)
         ),
+        cv.Optional(CONF_SWITCH_ID): cv.use_id(switch.Switch),
+        cv.Optional(CONF_LIGHT_ID): cv.use_id(light.LightState),
     }
 )
 
@@ -114,5 +118,14 @@ async def to_code(config: ConfigType) -> None:
         cg.add(var.set_app_key(config[CONF_APP_KEY]))
     if CONF_UNICAST_ADDRESS in config:
         cg.add(var.set_unicast_address(config[CONF_UNICAST_ADDRESS]))
+
+    if CONF_ELEMENTS in config:
+        for elem_conf in config[CONF_ELEMENTS]:
+            if CONF_SWITCH_ID in elem_conf:
+                sw = await cg.get_variable(elem_conf[CONF_SWITCH_ID])
+                cg.add(var.add_bound_switch(sw))
+            if CONF_LIGHT_ID in elem_conf:
+                lgt = await cg.get_variable(elem_conf[CONF_LIGHT_ID])
+                cg.add(var.add_bound_light(lgt))
 
     cg.add_define("USE_BLUETOOTH_SIG_MESH")

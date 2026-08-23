@@ -62,6 +62,8 @@ void BluetoothSIGMesh::dump_config() {
   ESP_LOGCONFIG(TAG, "  Unicast address: 0x%04X", this->unicast_address_);
   ESP_LOGCONFIG(TAG, "  NetKey set: %s", YESNO(this->net_key_.is_set));
   ESP_LOGCONFIG(TAG, "  AppKey set: %s", YESNO(this->app_key_.is_set));
+  ESP_LOGCONFIG(TAG, "  Bound switches count: %zu", this->bound_switches_.size());
+  ESP_LOGCONFIG(TAG, "  Bound lights count: %zu", this->bound_lights_.size());
   ESP_LOGCONFIG(TAG, "  Provisioning state: %s",
                 this->provision_state_ == ProvisioningState::PROVISIONED ? "Provisioned" : "Unprovisioned");
 }
@@ -194,14 +196,36 @@ void BluetoothSIGMesh::remove_proxy_filter_address(uint16_t address) {
 }
 
 void BluetoothSIGMesh::on_generic_onoff_get(uint16_t src, uint16_t dst) {
-  ESP_LOGD(TAG, "Generic OnOff Get from 0x%04X, current state: %s", src, YESNO(this->generic_onoff_state_));
-  uint8_t status_payload[1] = {static_cast<uint8_t>(this->generic_onoff_state_ ? 1 : 0)};
+  bool current_state = this->generic_onoff_state_;
+  if (!this->bound_switches_.empty() && this->bound_switches_[0] != nullptr) {
+    current_state = this->bound_switches_[0]->state;
+  } else if (!this->bound_lights_.empty() && this->bound_lights_[0] != nullptr) {
+    current_state = this->bound_lights_[0]->remote_values.is_on();
+  }
+  ESP_LOGD(TAG, "Generic OnOff Get from 0x%04X, current state: %s", src, YESNO(current_state));
+  uint8_t status_payload[1] = {static_cast<uint8_t>(current_state ? 1 : 0)};
   this->send_mesh_pdu(src, this->app_key_index_, OPCODE_GENERIC_ONOFF_STATUS, status_payload, sizeof(status_payload));
 }
 
 void BluetoothSIGMesh::on_generic_onoff_set(uint16_t src, uint16_t dst, bool state, bool ack) {
   ESP_LOGI(TAG, "Generic OnOff Set from 0x%04X: new_state=%s, ack=%s", src, YESNO(state), YESNO(ack));
   this->generic_onoff_state_ = state;
+  for (auto *sw : this->bound_switches_) {
+    if (sw != nullptr) {
+      if (state) {
+        sw->turn_on();
+      } else {
+        sw->turn_off();
+      }
+    }
+  }
+  for (auto *lgt : this->bound_lights_) {
+    if (lgt != nullptr) {
+      auto call = lgt->make_call();
+      call.set_state(state);
+      call.perform();
+    }
+  }
   if (ack) {
     uint8_t status_payload[1] = {static_cast<uint8_t>(this->generic_onoff_state_ ? 1 : 0)};
     this->send_mesh_pdu(src, this->app_key_index_, OPCODE_GENERIC_ONOFF_STATUS, status_payload, sizeof(status_payload));
@@ -218,6 +242,18 @@ void BluetoothSIGMesh::on_generic_level_get(uint16_t src, uint16_t dst) {
 void BluetoothSIGMesh::on_generic_level_set(uint16_t src, uint16_t dst, int16_t level, bool ack) {
   ESP_LOGI(TAG, "Generic Level Set from 0x%04X: new_level=%d, ack=%s", src, level, YESNO(ack));
   this->generic_level_state_ = level;
+  for (auto *lgt : this->bound_lights_) {
+    if (lgt != nullptr) {
+      float brightness = static_cast<float>(level) / 32767.0f;
+      if (brightness < 0.0f) {
+        brightness = 0.0f;
+      }
+      auto call = lgt->make_call();
+      call.set_brightness(brightness);
+      call.set_state(brightness > 0.0f);
+      call.perform();
+    }
+  }
   if (ack) {
     uint8_t status_payload[2] = {static_cast<uint8_t>(this->generic_level_state_ & 0xFF),
                                  static_cast<uint8_t>((this->generic_level_state_ >> 8) & 0xFF)};

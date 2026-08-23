@@ -2,6 +2,8 @@
 
 #ifdef USE_BLUETOOTH_SIG_MESH
 
+#include "esphome/components/light/light_state.h"
+#include "esphome/components/switch/switch.h"
 #include "esphome/core/component.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
@@ -119,6 +121,8 @@ class BluetoothSIGMesh : public Component {
   void set_net_key(const std::string &net_key_hex);
   void set_app_key(const std::string &app_key_hex);
   void set_unicast_address(uint16_t address) { this->unicast_address_ = address; }
+  void add_bound_switch(switch_::Switch *sw) { this->bound_switches_.push_back(sw); }
+  void add_bound_light(light::LightState *lgt) { this->bound_lights_.push_back(lgt); }
 
   bool is_node_enabled() const { return this->enable_node_; }
   bool is_proxy_enabled() const { return this->enable_proxy_; }
@@ -163,6 +167,9 @@ class BluetoothSIGMesh : public Component {
 
   uint8_t proxy_filter_type_{PROXY_FILTER_TYPE_WHITE_LIST};
   std::set<uint16_t> proxy_filter_addresses_{};
+
+  std::vector<switch_::Switch *> bound_switches_{};
+  std::vector<light::LightState *> bound_lights_{};
 };
 
 extern BluetoothSIGMesh *global_bluetooth_sig_mesh;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
