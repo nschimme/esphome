@@ -4,6 +4,9 @@
 
 #include "esphome/components/esp32_ble/ble.h"
 #include "esphome/components/esp32_ble/ble_advertising.h"
+#if defined(USE_ESP32_BLE_SERVER)
+#include "esphome/components/esp32_ble_server/ble_server.h"
+#endif
 
 namespace esphome {
 namespace bluetooth_sig_mesh {
@@ -43,6 +46,24 @@ void ESP32BluetoothSIGMesh::init_esp32_mesh_() {
 
   if (this->enable_proxy_) {
     ESP_LOGI(TAG, "Configuring ESP32 GATT Mesh Proxy Service (0x1828)...");
+#if defined(USE_ESP32_BLE_SERVER)
+    if (esp32_ble_server::global_ble_server != nullptr) {
+      auto *proxy_service = esp32_ble_server::global_ble_server->create_service(
+          esp32_ble::ESPBTUUID::from_uint16(MESH_PROXY_SERVICE_UUID), true);
+      if (proxy_service != nullptr) {
+        auto *data_in_char = proxy_service->create_characteristic(
+            MESH_PROXY_DATA_IN_UUID, ESP_GATT_CHAR_PROP_BIT_WRITE | ESP_GATT_CHAR_PROP_BIT_WRITE_NR);
+        if (data_in_char != nullptr) {
+          data_in_char->on_write([this](const std::vector<uint8_t> &data) {
+            this->on_proxy_data_in_write(data.data(), data.size());
+          });
+        }
+        proxy_service->create_characteristic(
+            MESH_PROXY_DATA_OUT_UUID, ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_NOTIFY);
+        proxy_service->start();
+      }
+    }
+#endif
   }
 }
 
