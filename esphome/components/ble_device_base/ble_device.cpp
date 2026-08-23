@@ -537,7 +537,7 @@ void ESPBTDevice::parse_adv_(const uint8_t *payload, uint16_t len) {
           ServiceData sd;
           sd.uuid = ESPBTUUID::from_uint16(ad_type);
           sd.data.assign(ad_data, ad_data + ad_data_len);
-          this->manufacturer_datas_.push_back(std::move(sd));
+          this->service_datas_.push_back(std::move(sd));
         }
         break;
 
