@@ -78,7 +78,7 @@ void ESP32BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint16
                                           size_t len) {
   BluetoothSIGMesh::send_mesh_pdu(dst, app_idx, opcode, payload, len);
   const auto &framed_pdu = this->get_last_outgoing_frame();
-  ESP_LOGI(TAG, "Broadcasting ESP32 BLE Mesh advertisement packet (DST: 0x%04X, Framed Len: %zu)...", dst,
+  ESP_LOGI(TAG, "Broadcasting ESP32 BLE Mesh encrypted advertisement packet (DST: 0x%04X, Framed Len: %zu)...", dst,
            framed_pdu.size());
 
   uint8_t raw_adv[31] = {0};

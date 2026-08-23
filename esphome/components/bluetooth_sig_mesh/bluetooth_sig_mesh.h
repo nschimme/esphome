@@ -149,6 +149,8 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
                       uint8_t out_pk[16]);
   static bool decrypt_mesh_payload(const uint8_t key[16], const uint8_t nonce[13], const uint8_t *ct, size_t ct_len,
                                    uint8_t *pt, size_t mic_len);
+  static void encrypt_mesh_payload(const uint8_t key[16], const uint8_t nonce[13], const uint8_t *pt, size_t pt_len,
+                                   uint8_t *ct, size_t mic_len);
   static void obfuscate_header(const uint8_t privacy_key[16], uint32_t iv_index, const uint8_t privacy_random[7],
                                uint8_t header_data[6]);
 
