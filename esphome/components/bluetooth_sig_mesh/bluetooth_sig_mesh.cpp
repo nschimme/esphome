@@ -663,6 +663,8 @@ void BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint16_t op
   if (this->seq_number_ % 10 == 0) {
     this->pref_.save(&this->seq_number_);
   }
+
+  this->send_proxy_data_out_notification(pdu_buffer, this->last_outgoing_frame_len_);
 }
 
 void BluetoothSIGMesh::handle_proxy_pdu(const uint8_t *data, size_t len) {
