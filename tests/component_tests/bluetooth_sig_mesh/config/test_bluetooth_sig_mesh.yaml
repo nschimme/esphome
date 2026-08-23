@@ -1,0 +1,11 @@
+esphome:
+  name: test-bluetooth-sig-mesh
+
+esp32:
+  board: esp32dev
+
+bluetooth_sig_mesh:
+  role: both
+  enable_node: true
+  enable_proxy: true
+  unicast_address: 0x0002

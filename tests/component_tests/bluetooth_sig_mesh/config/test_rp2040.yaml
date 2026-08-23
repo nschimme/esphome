@@ -1,0 +1,10 @@
+esphome:
+  name: test-rp2040-mesh
+
+rp2:
+  board: rpipicow
+
+bluetooth_sig_mesh:
+  role: node
+  enable_node: true
+  enable_proxy: false

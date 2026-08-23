@@ -1,0 +1,10 @@
+esphome:
+  name: test-esp32-mesh
+
+esp32:
+  board: esp32dev
+
+bluetooth_sig_mesh:
+  role: both
+  enable_node: true
+  enable_proxy: true

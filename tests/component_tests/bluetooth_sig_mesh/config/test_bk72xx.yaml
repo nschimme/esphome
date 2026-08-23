@@ -1,0 +1,10 @@
+esphome:
+  name: test-bk72xx-mesh
+
+bk72xx:
+  board: cb2s
+
+bluetooth_sig_mesh:
+  role: proxy
+  enable_node: false
+  enable_proxy: true

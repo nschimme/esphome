@@ -1,0 +1,8 @@
+esphome:
+  name: test-ln882h-mesh
+
+ln882x:
+  board: generic-ln882h
+
+bluetooth_sig_mesh:
+  role: both
