@@ -12,7 +12,7 @@ from esphome.types import ConfigType
 
 CODEOWNERS = ["@esphome"]
 
-CONF_ROLE = "role"
+CONF_MESH_ROLE = "mesh_role"
 CONF_ENABLE_NODE = "enable_node"
 CONF_ENABLE_PROXY = "enable_proxy"
 CONF_PROVISIONING = "provisioning"
@@ -69,7 +69,7 @@ CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(BluetoothSIGMesh),
-            cv.Optional(CONF_ROLE, default=ROLE_BOTH): cv.enum(ROLE_ENUM),
+            cv.Optional(CONF_MESH_ROLE, default=ROLE_BOTH): cv.enum(ROLE_ENUM),
             cv.Optional(CONF_ENABLE_NODE, default=True): cv.boolean,
             cv.Optional(CONF_ENABLE_PROXY, default=True): cv.boolean,
             cv.Optional(CONF_NET_KEY): cv.string,
@@ -95,7 +95,7 @@ async def to_code(config: ConfigType) -> None:
     var = cg.new_Pvariable(config[CONF_ID], klass())
     await cg.register_component(var, config)
 
-    role = config[CONF_ROLE]
+    role = config[CONF_MESH_ROLE]
     enable_node = config[CONF_ENABLE_NODE] and role in (ROLE_NODE, ROLE_BOTH)
     enable_proxy = config[CONF_ENABLE_PROXY] and role in (ROLE_PROXY, ROLE_BOTH)
 

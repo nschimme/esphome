@@ -13,9 +13,7 @@ void ESP32BluetoothSIGMesh::setup() {
   this->init_esp32_mesh_();
 }
 
-void ESP32BluetoothSIGMesh::loop() {
-  BluetoothSIGMesh::loop();
-}
+void ESP32BluetoothSIGMesh::loop() { BluetoothSIGMesh::loop(); }
 
 void ESP32BluetoothSIGMesh::init_esp32_mesh_() {
   // ESP32 BLE Mesh stack initialization logic

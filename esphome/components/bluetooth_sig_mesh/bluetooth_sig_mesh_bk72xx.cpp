@@ -13,9 +13,7 @@ void BK72XXBluetoothSIGMesh::setup() {
   this->init_bk72xx_mesh_();
 }
 
-void BK72XXBluetoothSIGMesh::loop() {
-  BluetoothSIGMesh::loop();
-}
+void BK72XXBluetoothSIGMesh::loop() { BluetoothSIGMesh::loop(); }
 
 void BK72XXBluetoothSIGMesh::init_bk72xx_mesh_() {
   // BK72xx Bluetooth SIG Mesh initialization logic

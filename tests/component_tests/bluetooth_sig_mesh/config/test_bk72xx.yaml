@@ -5,6 +5,6 @@ bk72xx:
   board: cb2s
 
 bluetooth_sig_mesh:
-  role: proxy
+  mesh_role: proxy
   enable_node: false
   enable_proxy: true

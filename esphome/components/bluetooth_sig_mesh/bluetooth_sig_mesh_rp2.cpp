@@ -13,9 +13,7 @@ void RP2040BluetoothSIGMesh::setup() {
   this->init_btstack_mesh_();
 }
 
-void RP2040BluetoothSIGMesh::loop() {
-  BluetoothSIGMesh::loop();
-}
+void RP2040BluetoothSIGMesh::loop() { BluetoothSIGMesh::loop(); }
 
 void RP2040BluetoothSIGMesh::init_btstack_mesh_() {
   // BTstack SIG Mesh initialization logic for RP2040 Pico W

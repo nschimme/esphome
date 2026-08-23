@@ -5,4 +5,4 @@ ln882x:
   board: generic-ln882h
 
 bluetooth_sig_mesh:
-  role: both
+  mesh_role: both

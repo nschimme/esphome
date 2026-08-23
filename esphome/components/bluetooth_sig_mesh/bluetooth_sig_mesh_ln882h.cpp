@@ -13,9 +13,7 @@ void LN882HBluetoothSIGMesh::setup() {
   this->init_ln882h_mesh_();
 }
 
-void LN882HBluetoothSIGMesh::loop() {
-  BluetoothSIGMesh::loop();
-}
+void LN882HBluetoothSIGMesh::loop() { BluetoothSIGMesh::loop(); }
 
 void LN882HBluetoothSIGMesh::init_ln882h_mesh_() {
   // LN882H Bluetooth SIG Mesh initialization logic
