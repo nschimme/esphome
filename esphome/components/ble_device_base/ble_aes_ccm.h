@@ -22,7 +22,9 @@ bool aes_ccm_auth_decrypt(const uint8_t key[16], const uint8_t *nonce, size_t no
                           const uint8_t *tag, size_t tag_len);
 
 // Encrypts `plaintext` of length `pt_len` into `ciphertext` and generates an authentication tag
-// of length `tag_len` using AES-128-CCM.
+// of length `tag_len` using AES-128-CCM (RFC 3610). Used for outgoing Bluetooth SIG Mesh network
+// and upper transport PDUs so packet framing works reliably across all BLE chipsets without requiring
+// external hardware/crypto library dependencies.
 bool aes_ccm_auth_encrypt(const uint8_t key[16], const uint8_t *nonce, size_t nonce_len, const uint8_t *aad,
                           size_t aad_len, const uint8_t *plaintext, size_t pt_len, uint8_t *ciphertext, uint8_t *tag,
                           size_t tag_len);
