@@ -15,28 +15,9 @@ BluetoothSIGMesh *global_bluetooth_sig_mesh = nullptr;  // NOLINT(cppcoreguideli
 
 void BluetoothSIGMesh::encrypt_mesh_payload(const uint8_t key[16], const uint8_t nonce[13], const uint8_t *pt,
                                             size_t pt_len, uint8_t *ct, size_t mic_len) {
-  if (pt_len > 0 && pt != nullptr) {
-    std::memcpy(ct, pt, pt_len);
-  }
-  // Simple AES CTR counter stream XOR encryption for payload
-  uint8_t ctr_block[16] = {0};
-  ctr_block[0] = 0x01;  // Flags for CTR mode
-  std::memcpy(ctr_block + 1, nonce, 13);
-  ctr_block[14] = 0x00;
-  ctr_block[15] = 0x01;  // Counter = 1
-
-  uint8_t ks[16] = {0};
-  ble_device_base::aes128_encrypt_block(key, ctr_block, ks);
-  for (size_t i = 0; i < pt_len; i++) {
-    ct[i] ^= ks[i % 16];
-  }
-
-  // Compute CBC-MAC tag for MIC authentication
-  uint8_t cmac[16] = {0};
-  mesh_aes_cmac(key, pt, pt_len, cmac);
-  for (size_t i = 0; i < mic_len; i++) {
-    ct[pt_len + i] = cmac[i];
-  }
+  uint8_t tag[8] = {0};
+  ble_device_base::aes_ccm_auth_encrypt(key, nonce, 13, nullptr, 0, pt, pt_len, ct, tag, mic_len);
+  std::memcpy(ct + pt_len, tag, mic_len);
 }
 
 void BluetoothSIGMesh::on_proxy_data_in_write(const uint8_t *data, size_t len) {

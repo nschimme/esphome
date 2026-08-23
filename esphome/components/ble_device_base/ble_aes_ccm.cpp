@@ -115,8 +115,6 @@ void aes128_encrypt_block(const uint8_t key[16], const uint8_t in[16], uint8_t o
 bool aes_ccm_auth_decrypt(const uint8_t key[16], const uint8_t *nonce, size_t nonce_len, const uint8_t *aad,
                           size_t aad_len, const uint8_t *ciphertext, size_t ct_len, uint8_t *plaintext,
                           const uint8_t *tag, size_t tag_len) {
-  // CCM length field width L and tag width M (RFC 3610 §2.2). For a 13-byte
-  // nonce L = 2; BTHome uses M = 4.
   if (nonce_len < 7 || nonce_len > 13 || tag_len < 4 || tag_len > 16)
     return false;
   const size_t l = 15 - nonce_len;
@@ -124,7 +122,6 @@ bool aes_ccm_auth_decrypt(const uint8_t key[16], const uint8_t *nonce, size_t no
 
   const Aes128 aes(key);
 
-  // Build CTR block A_i = [L-1] | nonce | counter(L bytes, big-endian).
   uint8_t a[16];
   auto build_ctr = [&](uint32_t counter) {
     a[0] = static_cast<uint8_t>(l - 1);
@@ -134,12 +131,10 @@ bool aes_ccm_auth_decrypt(const uint8_t key[16], const uint8_t *nonce, size_t no
       a[15 - i] = static_cast<uint8_t>((counter >> (8 * i)) & 0xff);
   };
 
-  // S_0 = E(A_0); its first m bytes mask the transmitted tag.
   uint8_t s0[16];
   build_ctr(0);
   aes.encrypt(a, s0);
 
-  // CTR-decrypt ciphertext into plaintext using S_1, S_2, ...
   uint8_t ks[16];
   for (size_t off = 0; off < ct_len; off += 16) {
     build_ctr(static_cast<uint32_t>(off / 16) + 1);
@@ -149,7 +144,6 @@ bool aes_ccm_auth_decrypt(const uint8_t key[16], const uint8_t *nonce, size_t no
       plaintext[off + i] = static_cast<uint8_t>(ciphertext[off + i] ^ ks[i]);
   }
 
-  // CBC-MAC over B_0 | (formatted AAD) | plaintext.
   uint8_t x[16];
   uint8_t b0[16];
   const uint8_t flags = static_cast<uint8_t>((aad_len > 0 ? 0x40 : 0x00) | (((m - 2) / 2) << 3) | (l - 1));
@@ -158,10 +152,9 @@ bool aes_ccm_auth_decrypt(const uint8_t key[16], const uint8_t *nonce, size_t no
   memset(b0 + 1 + nonce_len, 0, l);
   for (size_t i = 0; i < l; i++)
     b0[15 - i] = static_cast<uint8_t>((ct_len >> (8 * i)) & 0xff);
-  aes.encrypt(b0, x);  // X_1 = E(B_0)
+  aes.encrypt(b0, x);
 
   if (aad_len > 0) {
-    // Only the < 2^16-2^8 encoding is needed for BLE-sized AAD.
     uint8_t blk[16] = {0};
     blk[0] = static_cast<uint8_t>((aad_len >> 8) & 0xff);
     blk[1] = static_cast<uint8_t>(aad_len & 0xff);
@@ -192,11 +185,89 @@ bool aes_ccm_auth_decrypt(const uint8_t key[16], const uint8_t *nonce, size_t no
     aes.encrypt(x, x);
   }
 
-  // Expected tag U = T XOR S_0[0..m). Constant-time compare with the received tag.
   uint8_t diff = 0;
   for (size_t i = 0; i < m; i++)
     diff |= static_cast<uint8_t>((x[i] ^ s0[i]) ^ tag[i]);
   return diff == 0;
+}
+
+bool aes_ccm_auth_encrypt(const uint8_t key[16], const uint8_t *nonce, size_t nonce_len, const uint8_t *aad,
+                          size_t aad_len, const uint8_t *plaintext, size_t pt_len, uint8_t *ciphertext, uint8_t *tag,
+                          size_t tag_len) {
+  if (nonce_len < 7 || nonce_len > 13 || tag_len < 4 || tag_len > 16)
+    return false;
+  const size_t l = 15 - nonce_len;
+  const size_t m = tag_len;
+
+  const Aes128 aes(key);
+
+  uint8_t x[16];
+  uint8_t b0[16];
+  const uint8_t flags = static_cast<uint8_t>((aad_len > 0 ? 0x40 : 0x00) | (((m - 2) / 2) << 3) | (l - 1));
+  b0[0] = flags;
+  memcpy(b0 + 1, nonce, nonce_len);
+  memset(b0 + 1 + nonce_len, 0, l);
+  for (size_t i = 0; i < l; i++)
+    b0[15 - i] = static_cast<uint8_t>((pt_len >> (8 * i)) & 0xff);
+  aes.encrypt(b0, x);
+
+  if (aad_len > 0) {
+    uint8_t blk[16] = {0};
+    blk[0] = static_cast<uint8_t>((aad_len >> 8) & 0xff);
+    blk[1] = static_cast<uint8_t>(aad_len & 0xff);
+    size_t ai = 0;
+    size_t pos = 2;
+    while (pos < 16 && ai < aad_len)
+      blk[pos++] = aad[ai++];
+    for (size_t i = 0; i < 16; i++)
+      x[i] ^= blk[i];
+    aes.encrypt(x, x);
+    while (ai < aad_len) {
+      memset(blk, 0, 16);
+      const size_t n = std::min(static_cast<size_t>(16), aad_len - ai);
+      memcpy(blk, aad + ai, n);
+      ai += n;
+      for (size_t i = 0; i < 16; i++)
+        x[i] ^= blk[i];
+      aes.encrypt(x, x);
+    }
+  }
+
+  for (size_t off = 0; off < pt_len; off += 16) {
+    uint8_t blk[16] = {0};
+    const size_t n = std::min(static_cast<size_t>(16), pt_len - off);
+    memcpy(blk, plaintext + off, n);
+    for (size_t i = 0; i < 16; i++)
+      x[i] ^= blk[i];
+    aes.encrypt(x, x);
+  }
+
+  uint8_t a[16];
+  auto build_ctr = [&](uint32_t counter) {
+    a[0] = static_cast<uint8_t>(l - 1);
+    memcpy(a + 1, nonce, nonce_len);
+    memset(a + 1 + nonce_len, 0, l);
+    for (size_t i = 0; i < l; i++)
+      a[15 - i] = static_cast<uint8_t>((counter >> (8 * i)) & 0xff);
+  };
+
+  uint8_t s0[16];
+  build_ctr(0);
+  aes.encrypt(a, s0);
+
+  for (size_t i = 0; i < m; i++)
+    tag[i] = static_cast<uint8_t>(x[i] ^ s0[i]);
+
+  uint8_t ks[16];
+  for (size_t off = 0; off < pt_len; off += 16) {
+    build_ctr(static_cast<uint32_t>(off / 16) + 1);
+    aes.encrypt(a, ks);
+    const size_t n = std::min(static_cast<size_t>(16), pt_len - off);
+    for (size_t i = 0; i < n; i++)
+      ciphertext[off + i] = static_cast<uint8_t>(plaintext[off + i] ^ ks[i]);
+  }
+
+  return true;
 }
 
 }  // namespace esphome::ble_device_base
