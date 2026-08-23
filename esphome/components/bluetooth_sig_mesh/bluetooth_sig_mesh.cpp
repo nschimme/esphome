@@ -320,8 +320,7 @@ void BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
         obfuscate_header(this->privacy_key_, this->iv_index_, data + 7, relay_hdr);
         std::memcpy(retransmitted_pdu + 1, relay_hdr, 6);
 
-        ESP_LOGD(TAG, "Relaying Mesh PDU from 0x%04X to 0x%04X (Decremented TTL: %u)", hdr.src, hdr.dst,
-                 hdr.ttl - 1);
+        ESP_LOGD(TAG, "Relaying Mesh PDU from 0x%04X to 0x%04X (Decremented TTL: %u)", hdr.src, hdr.dst, hdr.ttl - 1);
         this->last_outgoing_frame_.assign(retransmitted_pdu, retransmitted_pdu + len);
       }
       return;
@@ -376,7 +375,7 @@ void BluetoothSIGMesh::process_network_pdu(const MeshNetworkPDUHeader &hdr, cons
 
     size_t mic_len = 4;
     if (!decrypt_mesh_payload(this->app_key_.bytes.data(), app_nonce, upper_transport_pdu, upper_transport_len,
-                               access_pdu, mic_len)) {
+                              access_pdu, mic_len)) {
       ESP_LOGW(TAG, "Upper transport decryption failed from SRC 0x%04X", hdr.src);
       return;
     }

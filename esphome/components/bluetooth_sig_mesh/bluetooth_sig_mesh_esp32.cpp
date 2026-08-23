@@ -54,12 +54,11 @@ void ESP32BluetoothSIGMesh::init_esp32_mesh_() {
         auto *data_in_char = proxy_service->create_characteristic(
             MESH_PROXY_DATA_IN_UUID, ESP_GATT_CHAR_PROP_BIT_WRITE | ESP_GATT_CHAR_PROP_BIT_WRITE_NR);
         if (data_in_char != nullptr) {
-          data_in_char->on_write([this](const std::vector<uint8_t> &data) {
-            this->on_proxy_data_in_write(data.data(), data.size());
-          });
+          data_in_char->on_write(
+              [this](const std::vector<uint8_t> &data) { this->on_proxy_data_in_write(data.data(), data.size()); });
         }
-        proxy_service->create_characteristic(
-            MESH_PROXY_DATA_OUT_UUID, ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_NOTIFY);
+        proxy_service->create_characteristic(MESH_PROXY_DATA_OUT_UUID,
+                                             ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_NOTIFY);
         proxy_service->start();
       }
     }

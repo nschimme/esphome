@@ -8,8 +8,7 @@
 namespace esphome {
 namespace bluetooth_sig_mesh {
 
-template<typename... Ts>
-class SendOnOffAction : public Action<Ts...> {
+template<typename... Ts> class SendOnOffAction : public Action<Ts...> {
  public:
   explicit SendOnOffAction(BluetoothSIGMesh *parent) : parent_(parent) {}
   TEMPLATABLE_VALUE(uint16_t, dst_address)
@@ -27,8 +26,7 @@ class SendOnOffAction : public Action<Ts...> {
   BluetoothSIGMesh *parent_;
 };
 
-template<typename... Ts>
-class SendLevelAction : public Action<Ts...> {
+template<typename... Ts> class SendLevelAction : public Action<Ts...> {
  public:
   explicit SendLevelAction(BluetoothSIGMesh *parent) : parent_(parent) {}
   TEMPLATABLE_VALUE(uint16_t, dst_address)
@@ -46,8 +44,7 @@ class SendLevelAction : public Action<Ts...> {
   BluetoothSIGMesh *parent_;
 };
 
-template<typename... Ts>
-class SendLightnessAction : public Action<Ts...> {
+template<typename... Ts> class SendLightnessAction : public Action<Ts...> {
  public:
   explicit SendLightnessAction(BluetoothSIGMesh *parent) : parent_(parent) {}
   TEMPLATABLE_VALUE(uint16_t, dst_address)
