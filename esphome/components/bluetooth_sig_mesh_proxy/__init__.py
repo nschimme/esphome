@@ -2,6 +2,7 @@ import esphome.codegen as cg
 from esphome.components import ble_device_base
 import esphome.config_validation as cv
 from esphome.const import CONF_ID
+from esphome.core import CORE
 from esphome.types import ConfigType
 
 from ..bluetooth_sig_mesh import BluetoothSIGMesh
@@ -31,5 +32,5 @@ async def to_code(config: ConfigType) -> None:
     mesh = await cg.get_variable(config[CONF_MESH_ID])
     cg.add(var.set_mesh_parent(mesh))
 
-    if cg.CORE.is_esp32:
+    if CORE.is_esp32:
         cg.add_define("USE_BLUETOOTH_SIG_MESH_PROXY")

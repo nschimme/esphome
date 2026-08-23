@@ -303,10 +303,6 @@ void BluetoothSIGMesh::setup() {
     ESP_LOGI(TAG, "Loaded saved Mesh Sequence Number: %" PRIu32, this->seq_number_);
   }
 
-  if (this->enable_proxy_) {
-    this->proxy_server_.is_active = true;
-    ESP_LOGI(TAG, "Activated GATT Mesh Proxy Server Service (0x1828)");
-  }
   if (this->net_key_.is_set && this->app_key_.is_set) {
     this->provision_state_ = ProvisioningState::PROVISIONED;
   }
@@ -317,10 +313,8 @@ void BluetoothSIGMesh::loop() {
 }
 
 void BluetoothSIGMesh::dump_config() {
-  ESP_LOGCONFIG(TAG, "Bluetooth SIG Mesh:");
-  ESP_LOGCONFIG(TAG, "  Node enabled: %s", YESNO(this->enable_node_));
-  ESP_LOGCONFIG(TAG, "  Proxy enabled: %s (GATT Server: %s)", YESNO(this->enable_proxy_),
-                YESNO(this->proxy_server_.is_active));
+  ESP_LOGCONFIG(TAG, "Bluetooth SIG Mesh Node:");
+  ESP_LOGCONFIG(TAG, "  Relay enabled: %s", YESNO(this->relay_enabled_));
   ESP_LOGCONFIG(TAG, "  Unicast address: 0x%04X", this->unicast_address_);
   ESP_LOGCONFIG(TAG, "  NetKey set: %s (NID: 0x%02X)", YESNO(this->net_key_.is_set), this->nid_);
   ESP_LOGCONFIG(TAG, "  AppKey set: %s (AID: 0x%02X)", YESNO(this->app_key_.is_set), this->aid_);
@@ -388,8 +382,8 @@ void BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
         this->process_network_pdu(hdr, decrypted + 2, transport_pdu_len);
       }
 
-      // Mesh Relay Engine: If TTL > 1, decrement TTL and relay network PDU
-      if (hdr.ttl > 1 && hdr.src != this->unicast_address_) {
+      // Mesh Relay Engine: If Relay Feature is enabled and TTL > 1, decrement TTL and relay network PDU
+      if (this->relay_enabled_ && hdr.ttl > 1 && hdr.src != this->unicast_address_) {
         uint8_t retransmitted_pdu[31] = {0};
         std::memcpy(retransmitted_pdu, data, len);
 
@@ -717,7 +711,7 @@ void BluetoothSIGMesh::handle_proxy_pdu(const uint8_t *data, size_t len) {
 }
 
 void BluetoothSIGMesh::send_proxy_data_out_notification(const uint8_t *data, size_t len) {
-  if (!this->enable_proxy_ || data == nullptr || len == 0) {
+  if (data == nullptr || len == 0) {
     return;
   }
   ESP_LOGVV(TAG, "Notifying GATT Proxy Data Out (0x2ADF), len: %zu", len);

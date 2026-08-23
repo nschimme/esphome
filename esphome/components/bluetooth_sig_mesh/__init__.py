@@ -9,9 +9,7 @@ from esphome.types import ConfigType
 
 CODEOWNERS = ["@esphome"]
 
-CONF_MESH_ROLE = "mesh_role"
-CONF_ENABLE_NODE = "enable_node"
-CONF_ENABLE_PROXY = "enable_proxy"
+CONF_RELAY = "relay"
 CONF_PROVISIONING = "provisioning"
 CONF_NET_KEY = "net_key"
 CONF_APP_KEY = "app_key"
@@ -26,16 +24,6 @@ REMOTE_NODE_SCHEMA = cv.Schema(
         cv.Optional(CONF_NAME, default=""): cv.string,
     }
 )
-
-ROLE_NODE = "node"
-ROLE_PROXY = "proxy"
-ROLE_BOTH = "both"
-
-ROLE_ENUM = {
-    ROLE_NODE: ROLE_NODE,
-    ROLE_PROXY: ROLE_PROXY,
-    ROLE_BOTH: ROLE_BOTH,
-}
 
 bluetooth_sig_mesh_ns = cg.esphome_ns.namespace("bluetooth_sig_mesh")
 BluetoothSIGMesh = bluetooth_sig_mesh_ns.class_(
@@ -142,9 +130,7 @@ CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(BluetoothSIGMesh),
-            cv.Optional(CONF_MESH_ROLE, default=ROLE_BOTH): cv.enum(ROLE_ENUM),
-            cv.Optional(CONF_ENABLE_NODE, default=True): cv.boolean,
-            cv.Optional(CONF_ENABLE_PROXY, default=True): cv.boolean,
+            cv.Optional(CONF_RELAY, default=True): cv.boolean,
             cv.Optional(CONF_NET_KEY): cv.string,
             cv.Optional(CONF_APP_KEY): cv.string,
             cv.Optional(CONF_UNICAST_ADDRESS): cv.hex_uint16_t,
@@ -169,12 +155,7 @@ async def to_code(config: ConfigType) -> None:
     await cg.register_component(var, config)
     await ble_device_base.register_ble_device(var, config)
 
-    role = config[CONF_MESH_ROLE]
-    enable_node = config[CONF_ENABLE_NODE] and role in (ROLE_NODE, ROLE_BOTH)
-    enable_proxy = config[CONF_ENABLE_PROXY] and role in (ROLE_PROXY, ROLE_BOTH)
-
-    cg.add(var.set_enable_node(enable_node))
-    cg.add(var.set_enable_proxy(enable_proxy))
+    cg.add(var.set_relay(config[CONF_RELAY]))
 
     if CONF_NET_KEY in config:
         cg.add(var.set_net_key(config[CONF_NET_KEY]))

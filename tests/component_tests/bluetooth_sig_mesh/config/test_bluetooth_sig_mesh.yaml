@@ -5,7 +5,5 @@ esp32:
   board: esp32dev
 
 bluetooth_sig_mesh:
-  mesh_role: both
-  enable_node: true
-  enable_proxy: true
+  relay: true
   unicast_address: 0x0002

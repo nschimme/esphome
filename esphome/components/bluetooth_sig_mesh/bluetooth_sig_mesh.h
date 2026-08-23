@@ -134,8 +134,7 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
 
   bool parse_device(const ble_device_base::ESPBTDevice &device) override;
 
-  void set_enable_node(bool enable_node) { this->enable_node_ = enable_node; }
-  void set_enable_proxy(bool enable_proxy) { this->enable_proxy_ = enable_proxy; }
+  void set_relay(bool relay) { this->relay_enabled_ = relay; }
   void set_advertise_unprovisioned(bool advertise) { this->advertise_unprovisioned_ = advertise; }
   void set_net_key(const std::string &net_key_hex);
   void set_app_key(const std::string &app_key_hex);
@@ -144,8 +143,7 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   void add_bound_light(light::LightState *lgt) { this->bound_lights_.push_back(lgt); }
   void add_remote_node(uint16_t address, const std::string &device_key_hex, const std::string &name = "");
 
-  bool is_node_enabled() const { return this->enable_node_; }
-  bool is_proxy_enabled() const { return this->enable_proxy_; }
+  bool is_relay_enabled() const { return this->relay_enabled_; }
   bool is_provisioned() const { return this->provision_state_ == ProvisioningState::PROVISIONED; }
   uint16_t get_unicast_address() const { return this->unicast_address_; }
   ProvisioningState get_provisioning_state() const { return this->provision_state_; }
@@ -203,8 +201,7 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   void derive_net_keys_();
   void derive_app_keys_();
 
-  bool enable_node_{true};
-  bool enable_proxy_{true};
+  bool relay_enabled_{true};
   bool advertise_unprovisioned_{false};
   MeshKey net_key_{};
   MeshKey app_key_{};
