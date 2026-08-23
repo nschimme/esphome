@@ -2,6 +2,7 @@
 
 #if defined(USE_BLUETOOTH_SIG_MESH) && defined(USE_RP2040)
 
+#include <btstack.h>
 #include "esphome/components/rp2040_ble/rp2040_ble.h"
 
 namespace esphome {

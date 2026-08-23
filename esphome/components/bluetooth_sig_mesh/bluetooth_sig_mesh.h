@@ -9,6 +9,7 @@
 #include "esphome/core/component.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
+#include "esphome/core/preferences.h"
 #include <array>
 #include <cstdint>
 #include <set>
@@ -140,6 +141,7 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   void set_unicast_address(uint16_t address) { this->unicast_address_ = address; }
   void add_bound_switch(switch_::Switch *sw) { this->bound_switches_.push_back(sw); }
   void add_bound_light(light::LightState *lgt) { this->bound_lights_.push_back(lgt); }
+  void add_remote_node(uint16_t address, const std::string &device_key_hex, const std::string &name = "");
 
   bool is_node_enabled() const { return this->enable_node_; }
   bool is_proxy_enabled() const { return this->enable_proxy_; }
@@ -222,6 +224,8 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   std::vector<switch_::Switch *> bound_switches_{};
   std::vector<light::LightState *> bound_lights_{};
   std::vector<NodeSeenCallback> node_seen_callbacks_{};
+
+  ESPPreferenceObject pref_{};
 
   std::vector<uint8_t> last_outgoing_frame_{};
 };

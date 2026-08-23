@@ -28,7 +28,7 @@ void ESP32BluetoothSIGMesh::init_esp32_mesh_() {
   this->adv_params_ = {
       .adv_int_min = 0x0020,  // 20ms min interval
       .adv_int_max = 0x0040,  // 40ms max interval
-      .adv_type = ADV_TYPE_IND,
+      .adv_type = ADV_TYPE_NONCONN_IND,
       .own_addr_type = BLE_ADDR_TYPE_PUBLIC,
       .peer_addr = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
       .peer_addr_type = BLE_ADDR_TYPE_PUBLIC,

@@ -2,7 +2,7 @@ from esphome.automation import Action
 import esphome.codegen as cg
 from esphome.components import ble_device_base, light, switch
 import esphome.config_validation as cv
-from esphome.const import CONF_ID, CONF_LIGHT_ID, PLATFORM_BK72XX, PLATFORM_LN882X
+from esphome.const import CONF_ID, CONF_LIGHT_ID, CONF_NAME, PLATFORM_BK72XX, PLATFORM_LN882X
 from esphome.core import CORE
 from esphome.types import ConfigType
 
@@ -15,9 +15,19 @@ CONF_PROVISIONING = "provisioning"
 CONF_NET_KEY = "net_key"
 CONF_APP_KEY = "app_key"
 CONF_UNICAST_ADDRESS = "unicast_address"
+CONF_REMOTE_NODES = "remote_nodes"
+CONF_DEVICE_KEY = "device_key"
 CONF_ELEMENTS = "elements"
 CONF_MODELS = "models"
 CONF_SWITCH_ID = "switch_id"
+
+REMOTE_NODE_SCHEMA = cv.Schema(
+    {
+        cv.Required(CONF_UNICAST_ADDRESS): cv.hex_uint16_t,
+        cv.Required(CONF_DEVICE_KEY): cv.string,
+        cv.Optional(CONF_NAME, default=""): cv.string,
+    }
+)
 
 ROLE_NODE = "node"
 ROLE_PROXY = "proxy"
@@ -75,9 +85,9 @@ def AUTO_LOAD() -> list[str]:
     if CORE.is_rp2:
         return ["rp2040_ble", "ble_device_base"]
     if CORE.target_platform == PLATFORM_BK72XX:
-        return ["bk72xx_ble", "ble_device_base"]
+        return ["bk72xx_ble_tracker", "ble_device_base"]
     if CORE.target_platform == PLATFORM_LN882X:
-        return ["ln882h_ble", "ble_device_base"]
+        return ["ln882h_ble_tracker", "ble_device_base"]
     return ["ble_device_base"]
 
 
@@ -91,6 +101,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_NET_KEY): cv.string,
             cv.Optional(CONF_APP_KEY): cv.string,
             cv.Optional(CONF_UNICAST_ADDRESS): cv.hex_uint16_t,
+            cv.Optional(CONF_REMOTE_NODES): cv.ensure_list(REMOTE_NODE_SCHEMA),
             cv.Optional(CONF_ELEMENTS): cv.ensure_list(ELEMENT_SCHEMA),
         }
     )
@@ -128,6 +139,16 @@ async def to_code(config: ConfigType) -> None:
         cg.add(var.set_app_key(config[CONF_APP_KEY]))
     if CONF_UNICAST_ADDRESS in config:
         cg.add(var.set_unicast_address(config[CONF_UNICAST_ADDRESS]))
+
+    if CONF_REMOTE_NODES in config:
+        for node_conf in config[CONF_REMOTE_NODES]:
+            cg.add(
+                var.add_remote_node(
+                    node_conf[CONF_UNICAST_ADDRESS],
+                    node_conf[CONF_DEVICE_KEY],
+                    node_conf[CONF_NAME],
+                )
+            )
 
     if CONF_ELEMENTS in config:
         for elem_conf in config[CONF_ELEMENTS]:
