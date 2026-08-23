@@ -1,5 +1,5 @@
 import esphome.codegen as cg
-from esphome.components import light, switch
+from esphome.components import ble_device_base, light, switch
 import esphome.config_validation as cv
 from esphome.const import CONF_ID, CONF_LIGHT_ID, PLATFORM_BK72XX, PLATFORM_LN882X
 from esphome.core import CORE
@@ -47,7 +47,9 @@ ELEMENT_SCHEMA = cv.Schema(
 )
 
 bluetooth_sig_mesh_ns = cg.esphome_ns.namespace("bluetooth_sig_mesh")
-BluetoothSIGMesh = bluetooth_sig_mesh_ns.class_("BluetoothSIGMesh", cg.Component)
+BluetoothSIGMesh = bluetooth_sig_mesh_ns.class_(
+    "BluetoothSIGMesh", cg.Component, ble_device_base.ESPBTDeviceListener
+)
 ESP32BluetoothSIGMesh = bluetooth_sig_mesh_ns.class_(
     "ESP32BluetoothSIGMesh", BluetoothSIGMesh
 )
@@ -64,13 +66,13 @@ LN882HBluetoothSIGMesh = bluetooth_sig_mesh_ns.class_(
 
 def AUTO_LOAD() -> list[str]:
     if CORE.is_esp32:
-        return ["esp32_ble_tracker"]
+        return ["esp32_ble_tracker", "ble_device_base"]
     if CORE.is_rp2:
-        return ["rp2040_ble"]
+        return ["rp2040_ble", "ble_device_base"]
     if CORE.target_platform == PLATFORM_BK72XX:
-        return ["bk72xx_ble"]
+        return ["bk72xx_ble", "ble_device_base"]
     if CORE.target_platform == PLATFORM_LN882X:
-        return ["ln882h_ble"]
+        return ["ln882h_ble", "ble_device_base"]
     return ["ble_device_base"]
 
 
@@ -86,7 +88,9 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_UNICAST_ADDRESS): cv.hex_uint16_t,
             cv.Optional(CONF_ELEMENTS): cv.ensure_list(ELEMENT_SCHEMA),
         }
-    ).extend(cv.COMPONENT_SCHEMA),
+    )
+    .extend(ble_device_base.BLE_DEVICE_SCHEMA)
+    .extend(cv.COMPONENT_SCHEMA),
 )
 
 
@@ -104,6 +108,7 @@ async def to_code(config: ConfigType) -> None:
 
     var = cg.new_Pvariable(config[CONF_ID], klass())
     await cg.register_component(var, config)
+    await ble_device_base.register_ble_device(var, config)
 
     role = config[CONF_MESH_ROLE]
     enable_node = config[CONF_ENABLE_NODE] and role in (ROLE_NODE, ROLE_BOTH)

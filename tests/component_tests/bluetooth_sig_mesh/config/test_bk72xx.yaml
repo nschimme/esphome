@@ -4,6 +4,8 @@ esphome:
 bk72xx:
   board: cb2s
 
+bk72xx_ble_tracker:
+
 bluetooth_sig_mesh:
   mesh_role: proxy
   enable_node: false

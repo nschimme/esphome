@@ -3,6 +3,7 @@
 #ifdef USE_BLUETOOTH_SIG_MESH
 
 #include "esphome/components/ble_device_base/ble_aes_ccm.h"
+#include "esphome/components/ble_device_base/ble_device.h"
 #include "esphome/components/light/light_state.h"
 #include "esphome/components/switch/switch.h"
 #include "esphome/core/component.h"
@@ -109,13 +110,15 @@ struct MeshNetworkPDUHeader {
   uint16_t dst{0};
 };
 
-class BluetoothSIGMesh : public Component {
+class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceListener {
  public:
   BluetoothSIGMesh() = default;
 
   void setup() override;
   void loop() override;
   void dump_config() override;
+
+  bool parse_device(const ble_device_base::ESPBTDevice &device) override;
 
   void set_enable_node(bool enable_node) { this->enable_node_ = enable_node; }
   void set_enable_proxy(bool enable_proxy) { this->enable_proxy_ = enable_proxy; }

@@ -4,6 +4,8 @@ esphome:
 esp32:
   board: esp32dev
 
+esp32_ble_tracker:
+
 output:
   - platform: gpio
     pin: GPIO2

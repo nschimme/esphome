@@ -4,6 +4,8 @@ esphome:
 rp2:
   board: rpipicow
 
+rp2_ble_tracker:
+
 bluetooth_sig_mesh:
   mesh_role: node
   enable_node: true

@@ -13,6 +13,18 @@ static const char *const TAG = "bluetooth_sig_mesh";
 
 BluetoothSIGMesh *global_bluetooth_sig_mesh = nullptr;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
+bool BluetoothSIGMesh::parse_device(const ble_device_base::ESPBTDevice &device) {
+  for (const auto &sd : device.get_service_datas()) {
+    if (sd.uuid == ble_device_base::ESPBTUUID::from_uint16(MESH_PROXY_SERVICE_UUID) ||
+        sd.uuid == ble_device_base::ESPBTUUID::from_uint16(MESH_PROVISIONING_SERVICE_UUID)) {
+      ESP_LOGVV(TAG, "Received SIG Mesh Service Data advertisement from MAC %012" PRIX64, device.address_uint64());
+      this->handle_proxy_pdu(sd.data.data(), sd.data.size());
+      return true;
+    }
+  }
+  return false;
+}
+
 void BluetoothSIGMesh::mesh_aes_cmac(const uint8_t key[16], const uint8_t *msg, size_t len, uint8_t out[16]) {
   uint8_t x[16] = {0};
   uint8_t y[16] = {0};
@@ -42,7 +54,7 @@ void BluetoothSIGMesh::mesh_s1(const uint8_t *m, size_t len, uint8_t out[16]) {
 }
 
 bool BluetoothSIGMesh::decrypt_mesh_payload(const uint8_t key[16], const uint8_t nonce[13], const uint8_t *ct,
-                                            size_t ct_len, uint8_t *pt, size_t mic_len) {
+                                           size_t ct_len, uint8_t *pt, size_t mic_len) {
   if (ct_len < mic_len) {
     return false;
   }
@@ -127,7 +139,7 @@ void BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
     const uint8_t *encrypted_payload = data + 9;
     size_t encrypted_len = len - 9;
 
-    if (this->net_key_.is_set && encrypted_len > 4) {
+    if (this->net_key_.is_set && encrypted_len > 4 && encrypted_len <= 128) {
       uint8_t nonce[13] = {0};
       nonce[0] = 0x00;  // Network Nonce
       nonce[1] = hdr.ttl | (hdr.ctl ? 0x80 : 0x00);
@@ -137,7 +149,6 @@ void BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
       nonce[5] = (hdr.src >> 8) & 0xFF;
       nonce[6] = hdr.src & 0xFF;
 
-      std::vector<uint16_t> pt(encrypted_len);
       uint8_t decrypted[128] = {0};
       size_t mic_len = hdr.ctl ? 8 : 4;
 
@@ -245,8 +256,7 @@ void BluetoothSIGMesh::handle_proxy_pdu(const uint8_t *data, size_t len) {
 void BluetoothSIGMesh::set_proxy_filter_type(uint8_t filter_type) {
   this->proxy_filter_type_ = filter_type;
   this->proxy_filter_addresses_.clear();
-  ESP_LOGI(TAG, "Proxy Filter type set to %s",
-           filter_type == PROXY_FILTER_TYPE_WHITE_LIST ? "White List" : "Black List");
+  ESP_LOGI(TAG, "Proxy Filter type set to %s", filter_type == PROXY_FILTER_TYPE_WHITE_LIST ? "White List" : "Black List");
 }
 
 void BluetoothSIGMesh::add_proxy_filter_address(uint16_t address) {
