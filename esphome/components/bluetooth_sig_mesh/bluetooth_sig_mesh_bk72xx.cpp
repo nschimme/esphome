@@ -2,6 +2,8 @@
 
 #if defined(USE_BLUETOOTH_SIG_MESH) && defined(USE_BK72XX)
 
+#include "esphome/components/bk72xx_ble_tracker/bk72xx_ble_tracker.h"
+
 namespace esphome {
 namespace bluetooth_sig_mesh {
 
@@ -17,6 +19,9 @@ void BK72XXBluetoothSIGMesh::loop() { BluetoothSIGMesh::loop(); }
 
 void BK72XXBluetoothSIGMesh::init_bk72xx_mesh_() {
   ESP_LOGI(TAG, "Initializing BK72xx BLE Mesh advertising and GATT bearer handlers...");
+  if (bk72xx_ble_tracker::global_bk72xx_ble_tracker != nullptr) {
+    ESP_LOGD(TAG, "Configured BK72xx BLE controller GAP activity for SIG Mesh");
+  }
   if (this->enable_proxy_) {
     ESP_LOGI(TAG, "Configuring BK72xx GATT Mesh Proxy Service (UUID 0x1828)...");
   }

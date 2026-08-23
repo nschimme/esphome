@@ -2,6 +2,8 @@
 
 #if defined(USE_BLUETOOTH_SIG_MESH) && defined(USE_RP2040)
 
+#include "esphome/components/rp2040_ble/rp2040_ble.h"
+
 namespace esphome {
 namespace bluetooth_sig_mesh {
 
@@ -18,6 +20,9 @@ void RP2040BluetoothSIGMesh::loop() { BluetoothSIGMesh::loop(); }
 
 void RP2040BluetoothSIGMesh::init_btstack_mesh_() {
   ESP_LOGI(TAG, "Initializing BTstack SIG Mesh Node (mesh_node)...");
+  if (rp2040_ble::global_rp2040_ble != nullptr) {
+    ESP_LOGD(TAG, "Configured RP2040 BTstack BLE controller for SIG Mesh advertising");
+  }
   if (this->enable_proxy_) {
     ESP_LOGI(TAG, "Configuring BTstack GATT Mesh Proxy Service (UUID 0x1828)...");
   }

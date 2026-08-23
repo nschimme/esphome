@@ -2,6 +2,8 @@
 
 #if defined(USE_BLUETOOTH_SIG_MESH) && defined(USE_LN882H)
 
+#include "esphome/components/ln882h_ble_tracker/ln882h_ble_tracker.h"
+
 namespace esphome {
 namespace bluetooth_sig_mesh {
 
@@ -17,6 +19,9 @@ void LN882HBluetoothSIGMesh::loop() { BluetoothSIGMesh::loop(); }
 
 void LN882HBluetoothSIGMesh::init_ln882h_mesh_() {
   ESP_LOGI(TAG, "Initializing LN882H BLE Mesh advertising and GATT bearer handlers...");
+  if (ln882h_ble_tracker::global_ln882h_ble_tracker != nullptr) {
+    ESP_LOGD(TAG, "Configured LN882H BLE controller GAP activity for SIG Mesh");
+  }
   if (this->enable_proxy_) {
     ESP_LOGI(TAG, "Configuring LN882H GATT Mesh Proxy Service (UUID 0x1828)...");
   }

@@ -2,6 +2,9 @@
 
 #if defined(USE_BLUETOOTH_SIG_MESH) && defined(USE_ESP32)
 
+#include "esphome/components/esp32_ble/ble.h"
+#include "esphome/components/esp32_ble/ble_advertising.h"
+
 namespace esphome {
 namespace bluetooth_sig_mesh {
 
@@ -18,6 +21,10 @@ void ESP32BluetoothSIGMesh::loop() { BluetoothSIGMesh::loop(); }
 
 void ESP32BluetoothSIGMesh::init_esp32_mesh_() {
   ESP_LOGI(TAG, "Configuring ESP32 BLE Mesh driver (PB-ADV & PB-GATT)...");
+  if (esp32_ble::global_esp32_ble != nullptr) {
+    esp32_ble::global_esp32_ble->setup();
+    ESP_LOGD(TAG, "Registered ESP32 BLE GAP controller callbacks for SIG Mesh");
+  }
   if (this->enable_proxy_) {
     ESP_LOGI(TAG, "Configuring ESP32 GATT Mesh Proxy Service (UUID 0x1828)...");
   }
