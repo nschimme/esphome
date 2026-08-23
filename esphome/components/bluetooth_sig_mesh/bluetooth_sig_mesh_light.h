@@ -2,18 +2,14 @@
 
 #ifdef USE_BLUETOOTH_SIG_MESH
 
-#include "esphome/components/bluetooth_sig_mesh/bluetooth_sig_mesh.h"
+#include "esphome/components/bluetooth_sig_mesh/bluetooth_sig_mesh_client.h"
 #include "esphome/components/light/light_output.h"
-#include "esphome/core/component.h"
 
 namespace esphome {
 namespace bluetooth_sig_mesh {
 
-class BluetoothSIGMeshLight : public light::LightOutput, public Component {
+class BluetoothSIGMeshLight : public light::LightOutput, public BluetoothSIGMeshClientEntity {
  public:
-  void set_parent(BluetoothSIGMesh *parent) { this->parent_ = parent; }
-  void set_dst_address(uint16_t dst_address) { this->dst_address_ = dst_address; }
-
   light::LightTraits get_traits() override {
     auto traits = light::LightTraits();
     traits.set_supported_color_modes({light::ColorMode::BRIGHTNESS});
@@ -22,25 +18,6 @@ class BluetoothSIGMeshLight : public light::LightOutput, public Component {
 
   void setup_state(light::LightState *state) override {
     this->state_ = state;
-  }
-
-  void setup() override {
-    if (this->parent_ != nullptr) {
-      this->parent_->add_node_seen_callback([this](uint16_t src, uint16_t opcode, const uint8_t *payload, size_t len) {
-        if (src == this->dst_address_) {
-          if (opcode == OPCODE_LIGHT_LIGHTNESS_STATUS && len >= 2) {
-            uint16_t lightness = static_cast<uint16_t>(payload[0]) | (static_cast<uint16_t>(payload[1]) << 8);
-            float brightness = static_cast<float>(lightness) / 65535.0f;
-            if (this->state_ != nullptr) {
-              auto call = this->state_->make_call();
-              call.set_brightness(brightness);
-              call.set_state(brightness > 0.0f);
-              call.perform();
-            }
-          }
-        }
-      });
-    }
   }
 
   void write_state(light::LightState *state) override {
@@ -60,8 +37,19 @@ class BluetoothSIGMeshLight : public light::LightOutput, public Component {
   }
 
  protected:
-  BluetoothSIGMesh *parent_{nullptr};
-  uint16_t dst_address_{0x0001};
+  void on_mesh_message_(uint16_t opcode, const uint8_t *payload, size_t len) override {
+    if (opcode == OPCODE_LIGHT_LIGHTNESS_STATUS && len >= 2) {
+      uint16_t lightness = static_cast<uint16_t>(payload[0]) | (static_cast<uint16_t>(payload[1]) << 8);
+      float brightness = static_cast<float>(lightness) / 65535.0f;
+      if (this->state_ != nullptr) {
+        auto call = this->state_->make_call();
+        call.set_brightness(brightness);
+        call.set_state(brightness > 0.0f);
+        call.perform();
+      }
+    }
+  }
+
   light::LightState *state_{nullptr};
 };
 

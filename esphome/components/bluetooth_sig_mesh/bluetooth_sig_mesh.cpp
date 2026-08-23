@@ -14,15 +14,14 @@ static const char *const TAG = "bluetooth_sig_mesh";
 BluetoothSIGMesh *global_bluetooth_sig_mesh = nullptr;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
 uint8_t BluetoothSIGMesh::mesh_k4(const uint8_t app_key[16]) {
-  static const uint8_t salt_smk4[4] = {'s', 'm', 'k', '4'};
-  static const uint8_t id6[3] = {'i', 'd', '6'};
-  uint8_t salt[16] = {0};
-  mesh_s1(salt_smk4, sizeof(salt_smk4), salt);
+  // Pre-calculated salt_smk4 = s1("smk4")
+  static const uint8_t salt_smk4[16] = {0x47, 0x14, 0xD4, 0xAA, 0xEB, 0x1F, 0xB6, 0xDF,
+                                        0x10, 0xE9, 0xB4, 0x10, 0x14, 0x98, 0xBF, 0xA2};
 
   uint8_t t[16] = {0};
-  mesh_aes_cmac(salt, app_key, 16, t);
+  mesh_aes_cmac(salt_smk4, app_key, 16, t);
 
-  uint8_t msg[4] = {id6[0], id6[1], id6[2], 0x01};
+  static const uint8_t msg[4] = {'i', 'd', '6', 0x01};
   uint8_t out[16] = {0};
   mesh_aes_cmac(t, msg, sizeof(msg), out);
   return out[15] & 0x3F;
@@ -163,50 +162,48 @@ void BluetoothSIGMesh::mesh_s1(const uint8_t *m, size_t len, uint8_t out[16]) {
 }
 
 void BluetoothSIGMesh::mesh_k1(const uint8_t n[16], const uint8_t *p, size_t p_len, uint8_t out[16]) {
-  static const uint8_t salt_smk1[4] = {'s', 'm', 'k', '1'};
-  uint8_t salt[16] = {0};
-  mesh_s1(salt_smk1, sizeof(salt_smk1), salt);
+  // Pre-calculated salt_smk1 = s1("smk1")
+  static const uint8_t salt_smk1[16] = {0x2E, 0xB1, 0x11, 0xAC, 0x2A, 0x48, 0x06, 0xA2,
+                                        0xC7, 0xA3, 0xD7, 0xDF, 0xF9, 0x1A, 0xEB, 0x31};
 
   uint8_t t[16] = {0};
-  mesh_aes_cmac(salt, n, 16, t);
+  mesh_aes_cmac(salt_smk1, n, 16, t);
   mesh_aes_cmac(t, p, p_len, out);
 }
 
 void BluetoothSIGMesh::mesh_k2(const uint8_t net_key[16], const uint8_t *p, size_t p_len, uint8_t *out_nid,
                                uint8_t out_ek[16], uint8_t out_pk[16]) {
-  static const uint8_t salt_smk2[4] = {'s', 'm', 'k', '2'};
-  uint8_t salt[16] = {0};
-  mesh_s1(salt_smk2, sizeof(salt_smk2), salt);
+  // Pre-calculated salt_smk2 = s1("smk2")
+  static const uint8_t salt_smk2[16] = {0x33, 0x82, 0x56, 0x1B, 0xAD, 0x82, 0x10, 0x7E,
+                                        0xAD, 0x3B, 0xF9, 0x7E, 0x8D, 0xA9, 0xC4, 0x6E};
 
   uint8_t t[16] = {0};
-  mesh_aes_cmac(salt, net_key, 16, t);
+  mesh_aes_cmac(salt_smk2, net_key, 16, t);
 
-  std::vector<uint8_t> msg1(p_len + 1);
-  if (p_len > 0 && p != nullptr) {
-    std::memcpy(msg1.data(), p, p_len);
+  uint8_t buf[33] = {0};
+  if (p_len > 0 && p != nullptr && p_len <= 16) {
+    std::memcpy(buf, p, p_len);
   }
-  msg1[p_len] = 0x01;
+  buf[p_len] = 0x01;
   uint8_t t1[16] = {0};
-  mesh_aes_cmac(t, msg1.data(), msg1.size(), t1);
+  mesh_aes_cmac(t, buf, p_len + 1, t1);
   if (out_nid != nullptr) {
     *out_nid = t1[15] & 0x7F;
   }
 
-  std::vector<uint8_t> msg2(16 + p_len + 1);
-  std::memcpy(msg2.data(), t1, 16);
-  if (p_len > 0 && p != nullptr) {
-    std::memcpy(msg2.data() + 16, p, p_len);
+  std::memcpy(buf, t1, 16);
+  if (p_len > 0 && p != nullptr && p_len <= 16) {
+    std::memcpy(buf + 16, p, p_len);
   }
-  msg2[16 + p_len] = 0x02;
-  mesh_aes_cmac(t, msg2.data(), msg2.size(), out_ek);
+  buf[16 + p_len] = 0x02;
+  mesh_aes_cmac(t, buf, 16 + p_len + 1, out_ek);
 
-  std::vector<uint8_t> msg3(16 + p_len + 1);
-  std::memcpy(msg3.data(), out_ek, 16);
-  if (p_len > 0 && p != nullptr) {
-    std::memcpy(msg3.data() + 16, p, p_len);
+  std::memcpy(buf, out_ek, 16);
+  if (p_len > 0 && p != nullptr && p_len <= 16) {
+    std::memcpy(buf + 16, p, p_len);
   }
-  msg3[16 + p_len] = 0x03;
-  mesh_aes_cmac(t, msg3.data(), msg3.size(), out_pk);
+  buf[16 + p_len] = 0x03;
+  mesh_aes_cmac(t, buf, 16 + p_len + 1, out_pk);
 }
 
 void BluetoothSIGMesh::obfuscate_header(const uint8_t privacy_key[16], uint32_t iv_index,
@@ -379,7 +376,7 @@ void BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
       }
 
       // Mesh Relay Engine: If Relay Feature is enabled and TTL > 1, decrement TTL and relay network PDU
-      if (this->relay_enabled_ && hdr.ttl > 1 && hdr.src != this->unicast_address_) {
+      if (this->relay_enabled_ && hdr.ttl > 1 && hdr.src != this->unicast_address_ && len <= 31) {
         uint8_t retransmitted_pdu[31] = {0};
         std::memcpy(retransmitted_pdu, data, len);
 
@@ -391,7 +388,8 @@ void BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
         std::memcpy(retransmitted_pdu + 1, relay_hdr, 6);
 
         ESP_LOGD(TAG, "Relaying Mesh PDU from 0x%04X to 0x%04X (Decremented TTL: %u)", hdr.src, hdr.dst, hdr.ttl - 1);
-        this->last_outgoing_frame_.assign(retransmitted_pdu, retransmitted_pdu + len);
+        std::memcpy(this->last_outgoing_frame_.data(), retransmitted_pdu, len);
+        this->last_outgoing_frame_len_ = len;
       }
     } else {
       ESP_LOGW(TAG, "Network PDU MIC decryption failed from NID 0x%02X", hdr.nid);
@@ -653,10 +651,13 @@ void BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint16_t op
     obfuscate_header(this->privacy_key_, this->iv_index_, pdu_buffer + 7, header_to_obfuscate);
     std::memcpy(pdu_buffer + 1, header_to_obfuscate, 6);
 
-    this->last_outgoing_frame_.assign(pdu_buffer, pdu_buffer + encrypted_frame_len);
+    std::memcpy(this->last_outgoing_frame_.data(), pdu_buffer, encrypted_frame_len);
+    this->last_outgoing_frame_len_ = encrypted_frame_len;
   } else {
     std::memcpy(pdu_buffer + 7, net_plaintext, net_plaintext_len);
-    this->last_outgoing_frame_.assign(pdu_buffer, pdu_buffer + 7 + net_plaintext_len);
+    size_t plain_frame_len = 7 + net_plaintext_len;
+    std::memcpy(this->last_outgoing_frame_.data(), pdu_buffer, plain_frame_len);
+    this->last_outgoing_frame_len_ = plain_frame_len;
   }
 
   if (this->seq_number_ % 10 == 0) {
@@ -672,28 +673,33 @@ void BluetoothSIGMesh::handle_proxy_pdu(const uint8_t *data, size_t len) {
   uint8_t pdu_type = data[0] & 0x3F;
 
   if (sar == 0x00) {  // Complete PDU
-    this->proxy_sar_buffer_.clear();
+    this->proxy_sar_len_ = 0;
   } else if (sar == 0x01) {  // First Segment
-    this->proxy_sar_buffer_.assign(data + 1, data + len);
+    this->proxy_sar_len_ = std::min(len - 1, this->proxy_sar_buffer_.size());
+    std::memcpy(this->proxy_sar_buffer_.data(), data + 1, this->proxy_sar_len_);
     return;
   } else if (sar == 0x02) {  // Continuation Segment
-    this->proxy_sar_buffer_.insert(this->proxy_sar_buffer_.end(), data + 1, data + len);
+    size_t chunk = std::min(len - 1, this->proxy_sar_buffer_.size() - this->proxy_sar_len_);
+    std::memcpy(this->proxy_sar_buffer_.data() + this->proxy_sar_len_, data + 1, chunk);
+    this->proxy_sar_len_ += chunk;
     return;
   } else if (sar == 0x03) {  // Last Segment
-    this->proxy_sar_buffer_.insert(this->proxy_sar_buffer_.end(), data + 1, data + len);
+    size_t chunk = std::min(len - 1, this->proxy_sar_buffer_.size() - this->proxy_sar_len_);
+    std::memcpy(this->proxy_sar_buffer_.data() + this->proxy_sar_len_, data + 1, chunk);
+    this->proxy_sar_len_ += chunk;
     const uint8_t *complete_data = this->proxy_sar_buffer_.data();
-    size_t complete_len = this->proxy_sar_buffer_.size();
+    size_t complete_len = this->proxy_sar_len_;
     if (complete_len > 0) {
       if (pdu_type == PROXY_PDU_TYPE_NET_PDU) {
         this->process_mesh_pdu(complete_data, complete_len);
       }
     }
-    this->proxy_sar_buffer_.clear();
+    this->proxy_sar_len_ = 0;
     return;
   }
 
   const uint8_t *payload = (sar == 0x00) ? (data + 1) : this->proxy_sar_buffer_.data();
-  size_t payload_len = (sar == 0x00) ? (len - 1) : this->proxy_sar_buffer_.size();
+  size_t payload_len = (sar == 0x00) ? (len - 1) : this->proxy_sar_len_;
 
   switch (pdu_type) {
     case PROXY_PDU_TYPE_NET_PDU:

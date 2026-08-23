@@ -174,7 +174,8 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   virtual void on_generic_level_get(uint16_t src, uint16_t dst);
   virtual void on_generic_level_set(uint16_t src, uint16_t dst, int16_t level, bool ack);
 
-  const std::vector<uint8_t> &get_last_outgoing_frame() const { return this->last_outgoing_frame_; }
+  const uint8_t *get_last_outgoing_frame_data() const { return this->last_outgoing_frame_.data(); }
+  size_t get_last_outgoing_frame_len() const { return this->last_outgoing_frame_len_; }
 
  protected:
   bool parse_hex_key_(const std::string &hex, MeshKey &out_key);
@@ -209,8 +210,11 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
 
   ESPPreferenceObject pref_{};
 
-  std::vector<uint8_t> proxy_sar_buffer_{};
-  std::vector<uint8_t> last_outgoing_frame_{};
+  std::array<uint8_t, 64> proxy_sar_buffer_{};
+  size_t proxy_sar_len_{0};
+
+  std::array<uint8_t, 31> last_outgoing_frame_{};
+  size_t last_outgoing_frame_len_{0};
 };
 
 extern BluetoothSIGMesh *global_bluetooth_sig_mesh;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
