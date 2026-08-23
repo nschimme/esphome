@@ -54,7 +54,7 @@ void BluetoothSIGMesh::mesh_s1(const uint8_t *m, size_t len, uint8_t out[16]) {
 }
 
 bool BluetoothSIGMesh::decrypt_mesh_payload(const uint8_t key[16], const uint8_t nonce[13], const uint8_t *ct,
-                                           size_t ct_len, uint8_t *pt, size_t mic_len) {
+                                            size_t ct_len, uint8_t *pt, size_t mic_len) {
   if (ct_len < mic_len) {
     return false;
   }
@@ -256,7 +256,8 @@ void BluetoothSIGMesh::handle_proxy_pdu(const uint8_t *data, size_t len) {
 void BluetoothSIGMesh::set_proxy_filter_type(uint8_t filter_type) {
   this->proxy_filter_type_ = filter_type;
   this->proxy_filter_addresses_.clear();
-  ESP_LOGI(TAG, "Proxy Filter type set to %s", filter_type == PROXY_FILTER_TYPE_WHITE_LIST ? "White List" : "Black List");
+  ESP_LOGI(TAG, "Proxy Filter type set to %s",
+           filter_type == PROXY_FILTER_TYPE_WHITE_LIST ? "White List" : "Black List");
 }
 
 void BluetoothSIGMesh::add_proxy_filter_address(uint16_t address) {
