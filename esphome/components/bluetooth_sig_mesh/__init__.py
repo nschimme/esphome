@@ -17,10 +17,31 @@ CONF_UNICAST_ADDRESS = "unicast_address"
 CONF_ADVERTISE_UNPROVISIONED = "advertise_unprovisioned"
 CONF_REMOTE_NODES = "remote_nodes"
 CONF_DEVICE_KEY = "device_key"
+
+# Unicast addresses must be in range 0x0001..0x7FFF per Bluetooth SIG Mesh Spec v1.0.1 Section 3.4.2.4
+def validate_unicast_address(value):
+    val = cv.hex_uint16_t(value)
+    if val < 0x0001 or val > 0x7FFF:
+        raise cv.Invalid(
+            f"Unicast address 0x{val:04X} is invalid. Must be in range 0x0001..0x7FFF per Bluetooth SIG Mesh Specification."
+        )
+    return val
+
+def validate_hex_key_128(value):
+    val = cv.string_strict(value)
+    val_clean = val.replace(":", "").replace("-", "").replace(" ", "")
+    if len(val_clean) != 32:
+        raise cv.Invalid("Key must be a 128-bit hex string (32 hex characters)")
+    try:
+        int(val_clean, 16)
+    except ValueError:
+        raise cv.Invalid("Key contains invalid hex characters")
+    return val_clean
+
 REMOTE_NODE_SCHEMA = cv.Schema(
     {
-        cv.Required(CONF_UNICAST_ADDRESS): cv.hex_uint16_t,
-        cv.Required(CONF_DEVICE_KEY): cv.string,
+        cv.Required(CONF_UNICAST_ADDRESS): validate_unicast_address,
+        cv.Required(CONF_DEVICE_KEY): validate_hex_key_128,
         cv.Optional(CONF_NAME, default=""): cv.string,
     }
 )
@@ -131,9 +152,9 @@ CONFIG_SCHEMA = cv.All(
         {
             cv.GenerateID(): cv.declare_id(BluetoothSIGMesh),
             cv.Optional(CONF_RELAY, default=True): cv.boolean,
-            cv.Optional(CONF_NET_KEY): cv.string,
-            cv.Optional(CONF_APP_KEY): cv.string,
-            cv.Optional(CONF_UNICAST_ADDRESS): cv.hex_uint16_t,
+            cv.Optional(CONF_NET_KEY): validate_hex_key_128,
+            cv.Optional(CONF_APP_KEY): validate_hex_key_128,
+            cv.Optional(CONF_UNICAST_ADDRESS): validate_unicast_address,
             cv.Optional(CONF_ADVERTISE_UNPROVISIONED, default=False): cv.boolean,
             cv.Optional(CONF_REMOTE_NODES): cv.ensure_list(REMOTE_NODE_SCHEMA),
         }
