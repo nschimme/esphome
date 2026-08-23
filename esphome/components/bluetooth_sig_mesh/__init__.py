@@ -3,9 +3,7 @@ import esphome.config_validation as cv
 from esphome.const import (
     CONF_ID,
     PLATFORM_BK72XX,
-    PLATFORM_ESP32,
     PLATFORM_LN882X,
-    PLATFORM_RP2,
 )
 from esphome.core import CORE
 from esphome.types import ConfigType
