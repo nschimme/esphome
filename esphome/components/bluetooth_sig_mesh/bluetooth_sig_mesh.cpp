@@ -307,6 +307,23 @@ void BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
         size_t transport_pdu_len = encrypted_len - mic_len - 2;
         this->process_network_pdu(hdr, decrypted + 2, transport_pdu_len);
       }
+
+      // Mesh Relay Engine: If TTL > 1, decrement TTL and relay network PDU
+      if (hdr.ttl > 1 && hdr.src != this->unicast_address_) {
+        uint8_t retransmitted_pdu[31] = {0};
+        std::memcpy(retransmitted_pdu, data, len);
+
+        uint8_t relay_hdr[6] = {0};
+        std::memcpy(relay_hdr, header_copy, 6);
+        relay_hdr[0] = (relay_hdr[0] & 0x80) | ((hdr.ttl - 1) & 0x7F);  // Decremented TTL
+
+        obfuscate_header(this->privacy_key_, this->iv_index_, data + 7, relay_hdr);
+        std::memcpy(retransmitted_pdu + 1, relay_hdr, 6);
+
+        ESP_LOGD(TAG, "Relaying Mesh PDU from 0x%04X to 0x%04X (Decremented TTL: %u)", hdr.src, hdr.dst,
+                 hdr.ttl - 1);
+        this->last_outgoing_frame_.assign(retransmitted_pdu, retransmitted_pdu + len);
+      }
       return;
     }
   }
@@ -322,9 +339,9 @@ void BluetoothSIGMesh::process_network_pdu(const MeshNetworkPDUHeader &hdr, cons
     return;
   }
 
-  // Lower Transport PDU parsing: byte 0 contains SEG (bit 6), AKF (bit 5), AID (bits 0..4)
-  bool seg = (payload[0] & 0x40) != 0;
-  bool akf = (payload[0] & 0x20) != 0;
+  // Lower Transport PDU parsing: byte 0 contains SEG (bit 7), AKF (bit 6), AID (bits 0..5)
+  bool seg = (payload[0] & 0x80) != 0;
+  bool akf = (payload[0] & 0x40) != 0;
   uint8_t aid = payload[0] & 0x3F;
 
   if (seg) {
@@ -389,8 +406,29 @@ void BluetoothSIGMesh::process_network_pdu(const MeshNetworkPDUHeader &hdr, cons
   this->process_access_pdu(hdr.src, hdr.dst, opcode, access_pdu + opcode_len, access_pdu_len - opcode_len);
 }
 
+void BluetoothSIGMesh::send_onoff(uint16_t dst, bool state, bool ack) {
+  uint8_t payload[1] = {static_cast<uint8_t>(state ? 1 : 0)};
+  uint16_t opcode = ack ? OPCODE_GENERIC_ONOFF_SET : OPCODE_GENERIC_ONOFF_SET_UNACK;
+  this->send_mesh_pdu(dst, this->app_key_index_, opcode, payload, sizeof(payload));
+}
+
+void BluetoothSIGMesh::send_level(uint16_t dst, int16_t level, bool ack) {
+  uint8_t payload[2] = {static_cast<uint8_t>(level & 0xFF), static_cast<uint8_t>((level >> 8) & 0xFF)};
+  uint16_t opcode = ack ? OPCODE_GENERIC_LEVEL_SET : OPCODE_GENERIC_LEVEL_SET_UNACK;
+  this->send_mesh_pdu(dst, this->app_key_index_, opcode, payload, sizeof(payload));
+}
+
+void BluetoothSIGMesh::send_lightness(uint16_t dst, uint16_t lightness, bool ack) {
+  uint8_t payload[2] = {static_cast<uint8_t>(lightness & 0xFF), static_cast<uint8_t>((lightness >> 8) & 0xFF)};
+  uint16_t opcode = ack ? OPCODE_LIGHT_LIGHTNESS_SET : OPCODE_LIGHT_LIGHTNESS_SET_UNACK;
+  this->send_mesh_pdu(dst, this->app_key_index_, opcode, payload, sizeof(payload));
+}
+
 void BluetoothSIGMesh::process_access_pdu(uint16_t src, uint16_t dst, uint16_t opcode, const uint8_t *payload,
                                           size_t len) {
+  for (const auto &cb : this->node_seen_callbacks_) {
+    cb(src, opcode, payload, len);
+  }
   switch (opcode) {
     case OPCODE_GENERIC_ONOFF_GET:
       this->on_generic_onoff_get(src, dst);
@@ -421,6 +459,23 @@ void BluetoothSIGMesh::process_access_pdu(uint16_t src, uint16_t dst, uint16_t o
       if (len >= 2) {
         int16_t level =
             static_cast<int16_t>((static_cast<uint16_t>(payload[1]) << 8) | static_cast<uint16_t>(payload[0]));
+        this->on_generic_level_set(src, dst, level, false);
+      }
+      break;
+    case OPCODE_LIGHT_LIGHTNESS_GET:
+      this->on_generic_level_get(src, dst);
+      break;
+    case OPCODE_LIGHT_LIGHTNESS_SET:
+      if (len >= 2) {
+        uint16_t lightness = static_cast<uint16_t>(payload[0]) | (static_cast<uint16_t>(payload[1]) << 8);
+        int16_t level = static_cast<int16_t>(lightness / 2);
+        this->on_generic_level_set(src, dst, level, true);
+      }
+      break;
+    case OPCODE_LIGHT_LIGHTNESS_SET_UNACK:
+      if (len >= 2) {
+        uint16_t lightness = static_cast<uint16_t>(payload[0]) | (static_cast<uint16_t>(payload[1]) << 8);
+        int16_t level = static_cast<int16_t>(lightness / 2);
         this->on_generic_level_set(src, dst, level, false);
       }
       break;

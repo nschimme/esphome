@@ -1,3 +1,4 @@
+from esphome.automation import Action
 import esphome.codegen as cg
 from esphome.components import ble_device_base, light, switch
 import esphome.config_validation as cv
@@ -50,6 +51,10 @@ bluetooth_sig_mesh_ns = cg.esphome_ns.namespace("bluetooth_sig_mesh")
 BluetoothSIGMesh = bluetooth_sig_mesh_ns.class_(
     "BluetoothSIGMesh", cg.Component, ble_device_base.ESPBTDeviceListener
 )
+
+SendOnOffAction = bluetooth_sig_mesh_ns.class_("SendOnOffAction", Action)
+SendLevelAction = bluetooth_sig_mesh_ns.class_("SendLevelAction", Action)
+SendLightnessAction = bluetooth_sig_mesh_ns.class_("SendLightnessAction", Action)
 ESP32BluetoothSIGMesh = bluetooth_sig_mesh_ns.class_(
     "ESP32BluetoothSIGMesh", BluetoothSIGMesh
 )

@@ -72,6 +72,12 @@ constexpr uint16_t OPCODE_GENERIC_LEVEL_SET = 0x8206;
 constexpr uint16_t OPCODE_GENERIC_LEVEL_SET_UNACK = 0x8207;
 constexpr uint16_t OPCODE_GENERIC_LEVEL_STATUS = 0x8208;
 
+// Light Lightness Opcodes
+constexpr uint16_t OPCODE_LIGHT_LIGHTNESS_GET = 0x824B;
+constexpr uint16_t OPCODE_LIGHT_LIGHTNESS_SET = 0x824C;
+constexpr uint16_t OPCODE_LIGHT_LIGHTNESS_SET_UNACK = 0x824D;
+constexpr uint16_t OPCODE_LIGHT_LIGHTNESS_STATUS = 0x824E;
+
 // Bluetooth SIG Mesh Key Sizes
 constexpr size_t MESH_KEY_SIZE = 16;
 constexpr size_t MESH_UUID_SIZE = 16;
@@ -161,6 +167,15 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   virtual void process_access_pdu(uint16_t src, uint16_t dst, uint16_t opcode, const uint8_t *payload, size_t len);
   virtual void send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint16_t opcode, const uint8_t *payload, size_t len);
 
+  // Client Command Helpers
+  void send_onoff(uint16_t dst, bool state, bool ack = true);
+  void send_level(uint16_t dst, int16_t level, bool ack = true);
+  void send_lightness(uint16_t dst, uint16_t lightness, bool ack = true);
+
+  // Event Listener Callbacks for Client Platforms
+  using NodeSeenCallback = std::function<void(uint16_t src, uint16_t opcode, const uint8_t *payload, size_t len)>;
+  void add_node_seen_callback(NodeSeenCallback &&cb) { this->node_seen_callbacks_.push_back(std::move(cb)); }
+
   // GATT Proxy Bearer & Proxy Filter Management
   virtual void handle_proxy_pdu(const uint8_t *data, size_t len);
   virtual void set_proxy_filter_type(uint8_t filter_type);
@@ -206,6 +221,7 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
 
   std::vector<switch_::Switch *> bound_switches_{};
   std::vector<light::LightState *> bound_lights_{};
+  std::vector<NodeSeenCallback> node_seen_callbacks_{};
 
   std::vector<uint8_t> last_outgoing_frame_{};
 };
