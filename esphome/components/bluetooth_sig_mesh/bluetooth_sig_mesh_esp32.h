@@ -25,9 +25,6 @@ class ESP32BluetoothSIGMesh : public BluetoothSIGMesh {
   void gap_event_handler_(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param);
 
   esp_ble_adv_params_t adv_params_{};
-#if defined(USE_ESP32_BLE_SERVER)
-  esp32_ble_server::BLECharacteristic *proxy_data_out_char_{nullptr};
-#endif
 };
 
 }  // namespace bluetooth_sig_mesh

@@ -71,12 +71,6 @@ void ESP32BluetoothSIGMesh::register_esp32_models_() {
 
 void ESP32BluetoothSIGMesh::send_proxy_data_out_notification(const uint8_t *data, size_t len) {
   BluetoothSIGMesh::send_proxy_data_out_notification(data, len);
-#if defined(USE_ESP32_BLE_SERVER)
-  if (this->proxy_data_out_char_ != nullptr && data != nullptr && len > 0) {
-    this->proxy_data_out_char_->setValue(std::vector<uint8_t>(data, data + len));
-    this->proxy_data_out_char_->notify();
-  }
-#endif
 }
 
 void ESP32BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
