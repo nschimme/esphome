@@ -18,10 +18,15 @@ void LN882HBluetoothSIGMesh::setup() {
 void LN882HBluetoothSIGMesh::loop() { BluetoothSIGMesh::loop(); }
 
 void LN882HBluetoothSIGMesh::init_ln882h_mesh_() {
-  ESP_LOGI(TAG, "Initializing LN882H BLE Mesh advertising and GATT bearer handlers...");
+  ESP_LOGI(TAG, "Initializing LN882H BLE Mesh advertising and GAP activity parameters...");
+  this->adv_interval_min_ = 0x0020;  // 20ms
+  this->adv_interval_max_ = 0x0040;  // 40ms
+
   if (ln882h_ble_tracker::global_ln882h_ble_tracker != nullptr) {
     ESP_LOGD(TAG, "Configured LN882H BLE controller GAP activity for SIG Mesh");
+    this->advertising_active_ = true;
   }
+
   if (this->enable_proxy_) {
     ESP_LOGI(TAG, "Configuring LN882H GATT Mesh Proxy Service (UUID 0x1828)...");
   }

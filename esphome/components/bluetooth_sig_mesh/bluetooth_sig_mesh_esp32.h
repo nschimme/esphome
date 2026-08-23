@@ -3,6 +3,7 @@
 #if defined(USE_BLUETOOTH_SIG_MESH) && defined(USE_ESP32)
 
 #include "bluetooth_sig_mesh.h"
+#include <esp_gap_ble_api.h>
 
 namespace esphome {
 namespace bluetooth_sig_mesh {
@@ -20,6 +21,9 @@ class ESP32BluetoothSIGMesh : public BluetoothSIGMesh {
  protected:
   void init_esp32_mesh_();
   void register_esp32_models_();
+  void gap_event_handler_(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param);
+
+  esp_ble_adv_params_t adv_params_{};
 };
 
 }  // namespace bluetooth_sig_mesh

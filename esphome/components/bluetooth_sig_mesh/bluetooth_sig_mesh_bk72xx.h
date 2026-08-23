@@ -19,6 +19,10 @@ class BK72XXBluetoothSIGMesh : public BluetoothSIGMesh {
 
  protected:
   void init_bk72xx_mesh_();
+
+  uint16_t adv_interval_min_{0x0020};
+  uint16_t adv_interval_max_{0x0040};
+  bool advertising_active_{false};
 };
 
 }  // namespace bluetooth_sig_mesh

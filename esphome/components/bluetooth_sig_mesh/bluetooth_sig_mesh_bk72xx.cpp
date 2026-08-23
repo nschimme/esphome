@@ -18,10 +18,15 @@ void BK72XXBluetoothSIGMesh::setup() {
 void BK72XXBluetoothSIGMesh::loop() { BluetoothSIGMesh::loop(); }
 
 void BK72XXBluetoothSIGMesh::init_bk72xx_mesh_() {
-  ESP_LOGI(TAG, "Initializing BK72xx BLE Mesh advertising and GATT bearer handlers...");
+  ESP_LOGI(TAG, "Initializing BK72xx BLE Mesh advertising and GAP activity parameters...");
+  this->adv_interval_min_ = 0x0020;  // 20ms
+  this->adv_interval_max_ = 0x0040;  // 40ms
+
   if (bk72xx_ble_tracker::global_bk72xx_ble_tracker != nullptr) {
     ESP_LOGD(TAG, "Configured BK72xx BLE controller GAP activity for SIG Mesh");
+    this->advertising_active_ = true;
   }
+
   if (this->enable_proxy_) {
     ESP_LOGI(TAG, "Configuring BK72xx GATT Mesh Proxy Service (UUID 0x1828)...");
   }

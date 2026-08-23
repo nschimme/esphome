@@ -19,10 +19,15 @@ void RP2040BluetoothSIGMesh::setup() {
 void RP2040BluetoothSIGMesh::loop() { BluetoothSIGMesh::loop(); }
 
 void RP2040BluetoothSIGMesh::init_btstack_mesh_() {
-  ESP_LOGI(TAG, "Initializing BTstack SIG Mesh Node (mesh_node)...");
+  ESP_LOGI(TAG, "Initializing BTstack SIG Mesh Node (mesh_node) parameters...");
+  this->adv_interval_min_ = 0x0020;  // 20ms
+  this->adv_interval_max_ = 0x0040;  // 40ms
+
   if (rp2040_ble::global_rp2040_ble != nullptr) {
-    ESP_LOGD(TAG, "Configured RP2040 BTstack BLE controller for SIG Mesh advertising");
+    ESP_LOGD(TAG, "Wired RP2040 BTstack BLE controller advertising parameters for SIG Mesh");
+    this->advertising_active_ = true;
   }
+
   if (this->enable_proxy_) {
     ESP_LOGI(TAG, "Configuring BTstack GATT Mesh Proxy Service (UUID 0x1828)...");
   }
