@@ -533,14 +533,21 @@ void BluetoothSIGMesh::process_access_pdu(uint16_t src, uint16_t dst, uint16_t o
         this->on_generic_level_set(src, dst, level, false);
       }
       break;
-    case OPCODE_LIGHT_LIGHTNESS_GET:
-      this->on_generic_level_get(src, dst);
+    case OPCODE_LIGHT_LIGHTNESS_GET: {
+      uint16_t lightness = static_cast<uint16_t>(this->generic_level_state_ * 2);
+      uint8_t status_payload[2] = {static_cast<uint8_t>(lightness & 0xFF),
+                                   static_cast<uint8_t>((lightness >> 8) & 0xFF)};
+      this->send_mesh_pdu(src, this->app_key_index_, OPCODE_LIGHT_LIGHTNESS_STATUS, status_payload, sizeof(status_payload));
       break;
+    }
     case OPCODE_LIGHT_LIGHTNESS_SET:
       if (len >= 2) {
         uint16_t lightness = static_cast<uint16_t>(payload[0]) | (static_cast<uint16_t>(payload[1]) << 8);
         int16_t level = static_cast<int16_t>(lightness / 2);
-        this->on_generic_level_set(src, dst, level, true);
+        this->on_generic_level_set(src, dst, level, false);
+        uint8_t status_payload[2] = {static_cast<uint8_t>(lightness & 0xFF),
+                                     static_cast<uint8_t>((lightness >> 8) & 0xFF)};
+        this->send_mesh_pdu(src, this->app_key_index_, OPCODE_LIGHT_LIGHTNESS_STATUS, status_payload, sizeof(status_payload));
       }
       break;
     case OPCODE_LIGHT_LIGHTNESS_SET_UNACK:

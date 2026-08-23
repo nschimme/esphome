@@ -20,6 +20,10 @@ class BluetoothSIGMeshLight : public light::LightOutput, public Component {
     return traits;
   }
 
+  void setup_state(light::LightState *state) override {
+    this->state_ = state;
+  }
+
   void setup() override {
     if (this->parent_ != nullptr) {
       this->parent_->add_node_seen_callback([this](uint16_t src, uint16_t opcode, const uint8_t *payload, size_t len) {
