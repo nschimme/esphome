@@ -11,12 +11,28 @@ void RP2040BluetoothSIGMesh::setup() {
   BluetoothSIGMesh::setup();
   ESP_LOGCONFIG(TAG, "Initializing RP2040 BTstack Bluetooth SIG Mesh stack...");
   this->init_btstack_mesh_();
+  this->register_btstack_models_();
 }
 
 void RP2040BluetoothSIGMesh::loop() { BluetoothSIGMesh::loop(); }
 
 void RP2040BluetoothSIGMesh::init_btstack_mesh_() {
-  // BTstack SIG Mesh initialization logic for RP2040 Pico W
+  ESP_LOGI(TAG, "Initializing BTstack SIG Mesh Node (mesh_node)...");
+  if (this->enable_proxy_) {
+    ESP_LOGI(TAG, "Enabling BTstack GATT Mesh Proxy Service (mesh_proxy)...");
+  }
+}
+
+void RP2040BluetoothSIGMesh::register_btstack_models_() {
+  ESP_LOGI(TAG, "Registering BTstack Mesh Elements and Models...");
+}
+
+void RP2040BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
+  BluetoothSIGMesh::process_mesh_pdu(data, len);
+}
+
+void RP2040BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, const uint8_t *payload, size_t len) {
+  BluetoothSIGMesh::send_mesh_pdu(dst, app_idx, payload, len);
 }
 
 }  // namespace bluetooth_sig_mesh

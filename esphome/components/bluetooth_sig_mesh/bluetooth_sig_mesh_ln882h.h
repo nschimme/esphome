@@ -14,6 +14,9 @@ class LN882HBluetoothSIGMesh : public BluetoothSIGMesh {
   void setup() override;
   void loop() override;
 
+  void process_mesh_pdu(const uint8_t *data, size_t len) override;
+  void send_mesh_pdu(uint16_t dst, uint16_t app_idx, const uint8_t *payload, size_t len) override;
+
  protected:
   void init_ln882h_mesh_();
 };

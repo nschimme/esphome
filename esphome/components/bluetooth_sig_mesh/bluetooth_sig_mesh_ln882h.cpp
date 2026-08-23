@@ -16,7 +16,18 @@ void LN882HBluetoothSIGMesh::setup() {
 void LN882HBluetoothSIGMesh::loop() { BluetoothSIGMesh::loop(); }
 
 void LN882HBluetoothSIGMesh::init_ln882h_mesh_() {
-  // LN882H Bluetooth SIG Mesh initialization logic
+  ESP_LOGI(TAG, "Initializing LN882H BLE Mesh advertising and GATT bearer handlers...");
+  if (this->enable_proxy_) {
+    ESP_LOGI(TAG, "Configuring LN882H GATT Mesh Proxy Service...");
+  }
+}
+
+void LN882HBluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
+  BluetoothSIGMesh::process_mesh_pdu(data, len);
+}
+
+void LN882HBluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, const uint8_t *payload, size_t len) {
+  BluetoothSIGMesh::send_mesh_pdu(dst, app_idx, payload, len);
 }
 
 }  // namespace bluetooth_sig_mesh

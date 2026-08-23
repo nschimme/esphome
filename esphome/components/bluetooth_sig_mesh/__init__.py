@@ -19,6 +19,8 @@ CONF_PROVISIONING = "provisioning"
 CONF_NET_KEY = "net_key"
 CONF_APP_KEY = "app_key"
 CONF_UNICAST_ADDRESS = "unicast_address"
+CONF_ELEMENTS = "elements"
+CONF_MODELS = "models"
 
 ROLE_NODE = "node"
 ROLE_PROXY = "proxy"
@@ -30,25 +32,21 @@ ROLE_ENUM = {
     ROLE_BOTH: ROLE_BOTH,
 }
 
-_SUPPORTED_PLATFORMS = (
-    PLATFORM_ESP32,
-    PLATFORM_RP2,
-    PLATFORM_BK72XX,
-    PLATFORM_LN882X,
+MODEL_GENERIC_ONOFF_SERVER = "generic_onoff_server"
+MODEL_GENERIC_LEVEL_SERVER = "generic_level_server"
+
+MODEL_ENUM = {
+    MODEL_GENERIC_ONOFF_SERVER: MODEL_GENERIC_ONOFF_SERVER,
+    MODEL_GENERIC_LEVEL_SERVER: MODEL_GENERIC_LEVEL_SERVER,
+}
+
+ELEMENT_SCHEMA = cv.Schema(
+    {
+        cv.Optional(CONF_MODELS, default=[MODEL_GENERIC_ONOFF_SERVER]): cv.ensure_list(
+            cv.enum(MODEL_ENUM)
+        ),
+    }
 )
-
-
-def AUTO_LOAD() -> list[str]:
-    if CORE.is_esp32:
-        return ["esp32_ble_tracker"]
-    if CORE.is_rp2:
-        return ["rp2040_ble"]
-    if CORE.target_platform == PLATFORM_BK72XX:
-        return ["bk72xx_ble"]
-    if CORE.target_platform == PLATFORM_LN882X:
-        return ["ln882h_ble"]
-    return ["ble_device_base"]
-
 
 bluetooth_sig_mesh_ns = cg.esphome_ns.namespace("bluetooth_sig_mesh")
 BluetoothSIGMesh = bluetooth_sig_mesh_ns.class_("BluetoothSIGMesh", cg.Component)
@@ -65,6 +63,19 @@ LN882HBluetoothSIGMesh = bluetooth_sig_mesh_ns.class_(
     "LN882HBluetoothSIGMesh", BluetoothSIGMesh
 )
 
+
+def AUTO_LOAD() -> list[str]:
+    if CORE.is_esp32:
+        return ["esp32_ble_tracker"]
+    if CORE.is_rp2:
+        return ["rp2040_ble"]
+    if CORE.target_platform == PLATFORM_BK72XX:
+        return ["bk72xx_ble"]
+    if CORE.target_platform == PLATFORM_LN882X:
+        return ["ln882h_ble"]
+    return ["ble_device_base"]
+
+
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
@@ -75,6 +86,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_NET_KEY): cv.string,
             cv.Optional(CONF_APP_KEY): cv.string,
             cv.Optional(CONF_UNICAST_ADDRESS): cv.hex_uint16_t,
+            cv.Optional(CONF_ELEMENTS): cv.ensure_list(ELEMENT_SCHEMA),
         }
     ).extend(cv.COMPONENT_SCHEMA),
 )
