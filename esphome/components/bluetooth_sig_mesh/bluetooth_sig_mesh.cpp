@@ -254,12 +254,18 @@ void BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
     if (this->net_key_.is_set && encrypted_len > 4 && encrypted_len <= 128) {
       uint8_t nonce[13] = {0};
       nonce[0] = 0x00;  // Network Nonce
-      nonce[1] = hdr.ttl | (hdr.ctl ? 0x80 : 0x00);
+      nonce[1] = (hdr.ctl ? 0x80 : 0x00) | (hdr.ttl & 0x7F);
       nonce[2] = (hdr.seq >> 16) & 0xFF;
       nonce[3] = (hdr.seq >> 8) & 0xFF;
       nonce[4] = hdr.seq & 0xFF;
       nonce[5] = (hdr.src >> 8) & 0xFF;
       nonce[6] = hdr.src & 0xFF;
+      nonce[7] = 0x00;  // Pad
+      nonce[8] = 0x00;
+      nonce[9] = (this->iv_index_ >> 24) & 0xFF;
+      nonce[10] = (this->iv_index_ >> 16) & 0xFF;
+      nonce[11] = (this->iv_index_ >> 8) & 0xFF;
+      nonce[12] = this->iv_index_ & 0xFF;
 
       uint8_t decrypted[128] = {0};
       size_t mic_len = hdr.ctl ? 8 : 4;
