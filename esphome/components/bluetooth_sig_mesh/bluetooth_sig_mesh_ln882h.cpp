@@ -29,6 +29,11 @@ void LN882HBluetoothSIGMesh::init_ln882h_mesh_() {
 
   if (this->enable_proxy_) {
     ESP_LOGI(TAG, "Configuring LN882H GATT Mesh Proxy Service (UUID 0x1828)...");
+    this->proxy_server_.is_active = true;
+    this->proxy_server_.service_uuid = MESH_PROXY_SERVICE_UUID;
+    this->proxy_server_.data_in_uuid = MESH_PROXY_DATA_IN_UUID;
+    this->proxy_server_.data_out_uuid = MESH_PROXY_DATA_OUT_UUID;
+    ESP_LOGI(TAG, "Instantiated LN882H GATT Mesh Proxy Service 0x1828 with Data In (0x2ADE) and Data Out (0x2ADF)");
   }
 }
 
