@@ -47,6 +47,20 @@ void RP2040BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint1
   const auto &framed_pdu = this->get_last_outgoing_frame();
   ESP_LOGI(TAG, "Broadcasting RP2040 Pico W BLE Mesh advertisement packet (DST: 0x%04X, Framed Len: %zu)...", dst,
            framed_pdu.size());
+
+  uint8_t raw_adv[31] = {0};
+  raw_adv[0] = 0x02;  // Length
+  raw_adv[1] = 0x01;  // Flags
+  raw_adv[2] = 0x06;  // General Discoverable & BR/EDR Not Supported
+
+  if (!framed_pdu.empty() && framed_pdu.size() <= 26) {
+    raw_adv[3] = static_cast<uint8_t>(framed_pdu.size() + 1);
+    raw_adv[4] = MESH_AD_TYPE_MESSAGE;  // 0x2A Mesh Message AD Type
+    std::memcpy(raw_adv + 5, framed_pdu.data(), framed_pdu.size());
+
+    gap_advertisements_set_data(framed_pdu.size() + 5, raw_adv);
+    gap_advertisements_enable(1);
+  }
 }
 
 }  // namespace bluetooth_sig_mesh
