@@ -88,24 +88,11 @@ struct MeshKey {
   bool is_set{false};
 };
 
-enum class MeshRole : uint8_t {
-  NODE = 0,
-  PROXY = 1,
-  BOTH = 2,
-};
-
 enum class ProvisioningState : uint8_t {
   UNPROVISIONED = 0,
   PROVISIONING = 1,
   PROVISIONED = 2,
   FAILED = 3,
-};
-
-struct SIGMeshElement {
-  uint16_t loc{0x0000};
-  uint8_t num_s_models{0};
-  uint8_t num_v_models{0};
-  std::vector<uint16_t> sig_models{};
 };
 
 struct MeshNetworkPDUHeader {
@@ -115,13 +102,6 @@ struct MeshNetworkPDUHeader {
   uint32_t seq{0};
   uint16_t src{0};
   uint16_t dst{0};
-};
-
-struct GATTProxyServiceServer {
-  uint16_t service_uuid{MESH_PROXY_SERVICE_UUID};
-  uint16_t data_in_uuid{MESH_PROXY_DATA_IN_UUID};
-  uint16_t data_out_uuid{MESH_PROXY_DATA_OUT_UUID};
-  bool is_active{false};
 };
 
 class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceListener {
@@ -216,13 +196,11 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   uint32_t iv_index_{0x00000000};
   uint32_t seq_number_{0x000001};
   ProvisioningState provision_state_{ProvisioningState::UNPROVISIONED};
-  std::vector<SIGMeshElement> elements_{};
   bool generic_onoff_state_{false};
   int16_t generic_level_state_{0};
 
   uint8_t proxy_filter_type_{PROXY_FILTER_TYPE_WHITE_LIST};
   std::set<uint16_t> proxy_filter_addresses_{};
-  GATTProxyServiceServer proxy_server_{};
 
   std::vector<switch_::Switch *> bound_switches_{};
   std::vector<light::LightState *> bound_lights_{};

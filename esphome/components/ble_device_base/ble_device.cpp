@@ -530,6 +530,17 @@ void ESPBTDevice::parse_adv_(const uint8_t *payload, uint16_t len) {
         }
         break;
 
+      case 0x29:  // PB-ADV
+      case 0x2A:  // Mesh Message
+      case 0x2B:  // Mesh Beacon
+        if (ad_data_len >= 1) {
+          ServiceData sd;
+          sd.uuid = ESPBTUUID::from_uint16(ad_type);
+          sd.data.assign(ad_data, ad_data + ad_data_len);
+          this->manufacturer_datas_.push_back(std::move(sd));
+        }
+        break;
+
       case 0x16:  // Service Data — 16-bit UUID
         if (ad_data_len >= 2) {
           uint16_t uuid = (static_cast<uint16_t>(ad_data[1]) << 8) | ad_data[0];

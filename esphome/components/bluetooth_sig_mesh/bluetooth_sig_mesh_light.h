@@ -44,7 +44,7 @@ class BluetoothSIGMeshLight : public light::LightOutput, public Component {
     if (this->parent_ == nullptr) {
       return;
     }
-    auto values = state->current_values;
+    auto values = state->remote_values;
     bool is_on = values.is_on();
     if (!is_on) {
       this->parent_->send_onoff(this->dst_address_, false, true);
