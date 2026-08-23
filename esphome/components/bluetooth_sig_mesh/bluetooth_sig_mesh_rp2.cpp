@@ -31,8 +31,9 @@ void RP2040BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
   BluetoothSIGMesh::process_mesh_pdu(data, len);
 }
 
-void RP2040BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, const uint8_t *payload, size_t len) {
-  BluetoothSIGMesh::send_mesh_pdu(dst, app_idx, 0, payload, len);
+void RP2040BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint16_t opcode, const uint8_t *payload,
+                                           size_t len) {
+  BluetoothSIGMesh::send_mesh_pdu(dst, app_idx, opcode, payload, len);
 }
 
 }  // namespace bluetooth_sig_mesh

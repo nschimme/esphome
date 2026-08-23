@@ -2,6 +2,7 @@
 
 #ifdef USE_BLUETOOTH_SIG_MESH
 
+#include "esphome/components/ble_device_base/ble_aes_ccm.h"
 #include "esphome/components/light/light_state.h"
 #include "esphome/components/switch/switch.h"
 #include "esphome/core/component.h"
@@ -129,6 +130,12 @@ class BluetoothSIGMesh : public Component {
   bool is_provisioned() const { return this->provision_state_ == ProvisioningState::PROVISIONED; }
   uint16_t get_unicast_address() const { return this->unicast_address_; }
   ProvisioningState get_provisioning_state() const { return this->provision_state_; }
+
+  // Cryptographic Helper Functions
+  static void mesh_aes_cmac(const uint8_t key[16], const uint8_t *msg, size_t len, uint8_t out[16]);
+  static void mesh_s1(const uint8_t *m, size_t len, uint8_t out[16]);
+  static bool decrypt_mesh_payload(const uint8_t key[16], const uint8_t nonce[13], const uint8_t *ct, size_t ct_len,
+                                   uint8_t *pt, size_t mic_len);
 
   // Mesh Network and Transport Layer Processing
   virtual void process_mesh_pdu(const uint8_t *data, size_t len);

@@ -4,6 +4,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 namespace esphome {
 namespace bluetooth_sig_mesh {
@@ -11,6 +12,44 @@ namespace bluetooth_sig_mesh {
 static const char *const TAG = "bluetooth_sig_mesh";
 
 BluetoothSIGMesh *global_bluetooth_sig_mesh = nullptr;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+
+void BluetoothSIGMesh::mesh_aes_cmac(const uint8_t key[16], const uint8_t *msg, size_t len, uint8_t out[16]) {
+  uint8_t x[16] = {0};
+  uint8_t y[16] = {0};
+
+  size_t n = (len + 15) / 16;
+  if (n == 0) {
+    n = 1;
+  }
+
+  for (size_t i = 0; i < n; i++) {
+    size_t block_len = (i == n - 1 && (len % 16 != 0 || len == 0)) ? (len % 16) : 16;
+    for (size_t j = 0; i * 16 + j < len && j < block_len; j++) {
+      y[j] = x[j] ^ msg[i * 16 + j];
+    }
+    for (size_t j = block_len; j < 16; j++) {
+      y[j] = x[j];
+    }
+    ble_device_base::aes128_encrypt_block(key, y, x);
+  }
+
+  std::memcpy(out, x, 16);
+}
+
+void BluetoothSIGMesh::mesh_s1(const uint8_t *m, size_t len, uint8_t out[16]) {
+  static const uint8_t zero_key[16] = {0};
+  mesh_aes_cmac(zero_key, m, len, out);
+}
+
+bool BluetoothSIGMesh::decrypt_mesh_payload(const uint8_t key[16], const uint8_t nonce[13], const uint8_t *ct,
+                                            size_t ct_len, uint8_t *pt, size_t mic_len) {
+  if (ct_len < mic_len) {
+    return false;
+  }
+  size_t payload_len = ct_len - mic_len;
+  const uint8_t *tag = ct + payload_len;
+  return ble_device_base::aes_ccm_auth_decrypt(key, nonce, 13, nullptr, 0, ct, payload_len, pt, tag, mic_len);
+}
 
 bool BluetoothSIGMesh::parse_hex_key_(const std::string &hex, MeshKey &out_key) {
   if (hex.length() != MESH_KEY_SIZE * 2) {
@@ -85,7 +124,32 @@ void BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
             hdr.ttl, hdr.ctl);
 
   if (hdr.dst == this->unicast_address_ || hdr.dst == 0xFFFF) {
-    this->process_network_pdu(hdr, data + 9, len - 9);
+    const uint8_t *encrypted_payload = data + 9;
+    size_t encrypted_len = len - 9;
+
+    if (this->net_key_.is_set && encrypted_len > 4) {
+      uint8_t nonce[13] = {0};
+      nonce[0] = 0x00;  // Network Nonce
+      nonce[1] = hdr.ttl | (hdr.ctl ? 0x80 : 0x00);
+      nonce[2] = (hdr.seq >> 16) & 0xFF;
+      nonce[3] = (hdr.seq >> 8) & 0xFF;
+      nonce[4] = hdr.seq & 0xFF;
+      nonce[5] = (hdr.src >> 8) & 0xFF;
+      nonce[6] = hdr.src & 0xFF;
+
+      std::vector<uint16_t> pt(encrypted_len);
+      uint8_t decrypted[128] = {0};
+      size_t mic_len = hdr.ctl ? 8 : 4;
+
+      if (decrypt_mesh_payload(this->net_key_.bytes.data(), nonce, encrypted_payload, encrypted_len, decrypted,
+                               mic_len)) {
+        ESP_LOGD(TAG, "Network PDU MIC validation and decryption successful");
+        this->process_network_pdu(hdr, decrypted, encrypted_len - mic_len);
+        return;
+      }
+    }
+
+    this->process_network_pdu(hdr, encrypted_payload, encrypted_len);
   }
 }
 
