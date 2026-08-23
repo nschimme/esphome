@@ -9,8 +9,6 @@ import pytest
     [
         ("test_esp32.yaml", "ESP32BluetoothSIGMesh"),
         ("test_rp2040.yaml", "RP2040BluetoothSIGMesh"),
-        ("test_bk72xx.yaml", "BK72XXBluetoothSIGMesh"),
-        ("test_ln882h.yaml", "LN882HBluetoothSIGMesh"),
     ],
 )
 def test_bluetooth_sig_mesh_config_generates(

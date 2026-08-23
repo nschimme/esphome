@@ -721,6 +721,9 @@ void BluetoothSIGMesh::send_proxy_data_out_notification(const uint8_t *data, siz
     return;
   }
   ESP_LOGVV(TAG, "Notifying GATT Proxy Data Out (0x2ADF), len: %zu", len);
+  if (this->proxy_data_out_callback_ != nullptr) {
+    this->proxy_data_out_callback_(data, len);
+  }
 }
 
 void BluetoothSIGMesh::set_proxy_filter_type(uint8_t filter_type) {

@@ -180,6 +180,9 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   void add_node_seen_callback(NodeSeenCallback &&cb) { this->node_seen_callbacks_.push_back(std::move(cb)); }
 
   // GATT Proxy Bearer & Proxy Filter Management
+  using ProxyDataOutCallback = std::function<void(const uint8_t *data, size_t len)>;
+  void set_proxy_data_out_callback(ProxyDataOutCallback &&cb) { this->proxy_data_out_callback_ = std::move(cb); }
+
   virtual void handle_proxy_pdu(const uint8_t *data, size_t len);
   virtual void send_proxy_data_out_notification(const uint8_t *data, size_t len);
   virtual void set_proxy_filter_type(uint8_t filter_type);
@@ -227,6 +230,7 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   std::vector<switch_::Switch *> bound_switches_{};
   std::vector<light::LightState *> bound_lights_{};
   std::vector<NodeSeenCallback> node_seen_callbacks_{};
+  ProxyDataOutCallback proxy_data_out_callback_{nullptr};
 
   ESPPreferenceObject pref_{};
 

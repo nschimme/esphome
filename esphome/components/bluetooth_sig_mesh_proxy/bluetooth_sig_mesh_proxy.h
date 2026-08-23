@@ -16,7 +16,14 @@ namespace bluetooth_sig_mesh_proxy {
 
 class BluetoothSIGMeshProxy : public Component {
  public:
-  void set_mesh_parent(bluetooth_sig_mesh::BluetoothSIGMesh *parent) { this->parent_ = parent; }
+  void set_mesh_parent(bluetooth_sig_mesh::BluetoothSIGMesh *parent) {
+    this->parent_ = parent;
+    if (this->parent_ != nullptr) {
+      this->parent_->set_proxy_data_out_callback([this](const uint8_t *data, size_t len) {
+        this->notify_data_out(data, len);
+      });
+    }
+  }
 
   void setup() override;
   void notify_data_out(const uint8_t *data, size_t len);

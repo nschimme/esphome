@@ -3,15 +3,7 @@ from esphome.automation import Action
 import esphome.codegen as cg
 from esphome.components import ble_device_base, light, switch
 import esphome.config_validation as cv
-from esphome.const import (
-    CONF_ID,
-    CONF_LEVEL,
-    CONF_LIGHT_ID,
-    CONF_NAME,
-    CONF_STATE,
-    PLATFORM_BK72XX,
-    PLATFORM_LN882X,
-)
+from esphome.const import CONF_ID, CONF_LEVEL, CONF_LIGHT_ID, CONF_NAME, CONF_STATE
 from esphome.core import CORE
 from esphome.types import ConfigType
 
@@ -27,10 +19,6 @@ CONF_UNICAST_ADDRESS = "unicast_address"
 CONF_ADVERTISE_UNPROVISIONED = "advertise_unprovisioned"
 CONF_REMOTE_NODES = "remote_nodes"
 CONF_DEVICE_KEY = "device_key"
-CONF_ELEMENTS = "elements"
-CONF_MODELS = "models"
-CONF_SWITCH_ID = "switch_id"
-
 REMOTE_NODE_SCHEMA = cv.Schema(
     {
         cv.Required(CONF_UNICAST_ADDRESS): cv.hex_uint16_t,
@@ -48,24 +36,6 @@ ROLE_ENUM = {
     ROLE_PROXY: ROLE_PROXY,
     ROLE_BOTH: ROLE_BOTH,
 }
-
-MODEL_GENERIC_ONOFF_SERVER = "generic_onoff_server"
-MODEL_GENERIC_LEVEL_SERVER = "generic_level_server"
-
-MODEL_ENUM = {
-    MODEL_GENERIC_ONOFF_SERVER: MODEL_GENERIC_ONOFF_SERVER,
-    MODEL_GENERIC_LEVEL_SERVER: MODEL_GENERIC_LEVEL_SERVER,
-}
-
-ELEMENT_SCHEMA = cv.Schema(
-    {
-        cv.Optional(CONF_MODELS, default=[MODEL_GENERIC_ONOFF_SERVER]): cv.ensure_list(
-            cv.enum(MODEL_ENUM)
-        ),
-        cv.Optional(CONF_SWITCH_ID): cv.use_id(switch.Switch),
-        cv.Optional(CONF_LIGHT_ID): cv.use_id(light.LightState),
-    }
-)
 
 bluetooth_sig_mesh_ns = cg.esphome_ns.namespace("bluetooth_sig_mesh")
 BluetoothSIGMesh = bluetooth_sig_mesh_ns.class_(
@@ -104,7 +74,10 @@ SEND_LIGHTNESS_ACTION_SCHEMA = cv.Schema(
 
 
 @automation.register_action(
-    "bluetooth_sig_mesh.send_onoff", SendOnOffAction, SEND_ONOFF_ACTION_SCHEMA
+    "bluetooth_sig_mesh.send_onoff",
+    SendOnOffAction,
+    SEND_ONOFF_ACTION_SCHEMA,
+    synchronous=True,
 )
 async def send_onoff_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
@@ -118,7 +91,10 @@ async def send_onoff_to_code(config, action_id, template_arg, args):
 
 
 @automation.register_action(
-    "bluetooth_sig_mesh.send_level", SendLevelAction, SEND_LEVEL_ACTION_SCHEMA
+    "bluetooth_sig_mesh.send_level",
+    SendLevelAction,
+    SEND_LEVEL_ACTION_SCHEMA,
+    synchronous=True,
 )
 async def send_level_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
@@ -135,6 +111,7 @@ async def send_level_to_code(config, action_id, template_arg, args):
     "bluetooth_sig_mesh.send_lightness",
     SendLightnessAction,
     SEND_LIGHTNESS_ACTION_SCHEMA,
+    synchronous=True,
 )
 async def send_lightness_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
@@ -151,12 +128,6 @@ ESP32BluetoothSIGMesh = bluetooth_sig_mesh_ns.class_(
 RP2040BluetoothSIGMesh = bluetooth_sig_mesh_ns.class_(
     "RP2040BluetoothSIGMesh", BluetoothSIGMesh
 )
-BK72XXBluetoothSIGMesh = bluetooth_sig_mesh_ns.class_(
-    "BK72XXBluetoothSIGMesh", BluetoothSIGMesh
-)
-LN882HBluetoothSIGMesh = bluetooth_sig_mesh_ns.class_(
-    "LN882HBluetoothSIGMesh", BluetoothSIGMesh
-)
 
 
 def AUTO_LOAD() -> list[str]:
@@ -164,10 +135,6 @@ def AUTO_LOAD() -> list[str]:
         return ["esp32_ble_tracker", "esp32_ble_server", "ble_device_base"]
     if CORE.is_rp2:
         return ["rp2040_ble", "ble_device_base"]
-    if CORE.target_platform == PLATFORM_BK72XX:
-        return ["bk72xx_ble_tracker", "ble_device_base"]
-    if CORE.target_platform == PLATFORM_LN882X:
-        return ["ln882h_ble_tracker", "ble_device_base"]
     return ["ble_device_base"]
 
 
@@ -183,7 +150,6 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_UNICAST_ADDRESS): cv.hex_uint16_t,
             cv.Optional(CONF_ADVERTISE_UNPROVISIONED, default=False): cv.boolean,
             cv.Optional(CONF_REMOTE_NODES): cv.ensure_list(REMOTE_NODE_SCHEMA),
-            cv.Optional(CONF_ELEMENTS): cv.ensure_list(ELEMENT_SCHEMA),
         }
     )
     .extend(ble_device_base.BLE_DEVICE_SCHEMA)
@@ -196,10 +162,6 @@ async def to_code(config: ConfigType) -> None:
         klass = ESP32BluetoothSIGMesh
     elif CORE.is_rp2:
         klass = RP2040BluetoothSIGMesh
-    elif CORE.target_platform == PLATFORM_BK72XX:
-        klass = BK72XXBluetoothSIGMesh
-    elif CORE.target_platform == PLATFORM_LN882X:
-        klass = LN882HBluetoothSIGMesh
     else:
         klass = BluetoothSIGMesh
 
@@ -233,13 +195,5 @@ async def to_code(config: ConfigType) -> None:
                 )
             )
 
-    if CONF_ELEMENTS in config:
-        for elem_conf in config[CONF_ELEMENTS]:
-            if CONF_SWITCH_ID in elem_conf:
-                sw = await cg.get_variable(elem_conf[CONF_SWITCH_ID])
-                cg.add(var.add_bound_switch(sw))
-            if CONF_LIGHT_ID in elem_conf:
-                lgt = await cg.get_variable(elem_conf[CONF_LIGHT_ID])
-                cg.add(var.add_bound_light(lgt))
-
     cg.add_define("USE_BLUETOOTH_SIG_MESH")
+    cg.add_global(bluetooth_sig_mesh_ns.using)
