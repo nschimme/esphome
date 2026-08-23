@@ -2,11 +2,11 @@ import esphome.codegen as cg
 from esphome.components import switch
 import esphome.config_validation as cv
 from esphome.const import CONF_ID
-
-CONF_DST_ADDRESS = "dst_address"
 from esphome.types import ConfigType
 
 from .. import BluetoothSIGMesh, bluetooth_sig_mesh_ns
+
+CONF_DST_ADDRESS = "dst_address"
 
 DEPENDENCIES = ["bluetooth_sig_mesh"]
 
