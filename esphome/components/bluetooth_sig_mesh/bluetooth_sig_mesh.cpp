@@ -13,6 +13,28 @@ static const char *const TAG = "bluetooth_sig_mesh";
 
 BluetoothSIGMesh *global_bluetooth_sig_mesh = nullptr;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
+uint8_t BluetoothSIGMesh::mesh_k4(const uint8_t app_key[16]) {
+  static const uint8_t salt_smk4[4] = {'s', 'm', 'k', '4'};
+  static const uint8_t id6[3] = {'i', 'd', '6'};
+  uint8_t salt[16] = {0};
+  mesh_s1(salt_smk4, sizeof(salt_smk4), salt);
+
+  uint8_t t[16] = {0};
+  mesh_aes_cmac(salt, app_key, 16, t);
+
+  uint8_t msg[4] = {id6[0], id6[1], id6[2], 0x01};
+  uint8_t out[16] = {0};
+  mesh_aes_cmac(t, msg, sizeof(msg), out);
+  return out[15] & 0x3F;
+}
+
+void BluetoothSIGMesh::derive_app_keys_() {
+  if (this->app_key_.is_set) {
+    this->aid_ = mesh_k4(this->app_key_.bytes.data());
+    ESP_LOGI(TAG, "Derived AppKey parameters: AID=0x%02X", this->aid_);
+  }
+}
+
 void BluetoothSIGMesh::encrypt_mesh_payload(const uint8_t key[16], const uint8_t nonce[13], const uint8_t *pt,
                                             size_t pt_len, uint8_t *ct, size_t mic_len) {
   uint8_t tag[8] = {0};
@@ -196,6 +218,7 @@ void BluetoothSIGMesh::set_net_key(const std::string &net_key_hex) {
 void BluetoothSIGMesh::set_app_key(const std::string &app_key_hex) {
   if (this->parse_hex_key_(app_key_hex, this->app_key_)) {
     ESP_LOGI(TAG, "Application key configured successfully");
+    this->derive_app_keys_();
     if (this->net_key_.is_set) {
       this->provision_state_ = ProvisioningState::PROVISIONED;
     }
@@ -225,7 +248,7 @@ void BluetoothSIGMesh::dump_config() {
                 YESNO(this->proxy_server_.is_active));
   ESP_LOGCONFIG(TAG, "  Unicast address: 0x%04X", this->unicast_address_);
   ESP_LOGCONFIG(TAG, "  NetKey set: %s (NID: 0x%02X)", YESNO(this->net_key_.is_set), this->nid_);
-  ESP_LOGCONFIG(TAG, "  AppKey set: %s", YESNO(this->app_key_.is_set));
+  ESP_LOGCONFIG(TAG, "  AppKey set: %s (AID: 0x%02X)", YESNO(this->app_key_.is_set), this->aid_);
   ESP_LOGCONFIG(TAG, "  Bound switches count: %zu", this->bound_switches_.size());
   ESP_LOGCONFIG(TAG, "  Bound lights count: %zu", this->bound_lights_.size());
   ESP_LOGCONFIG(TAG, "  Provisioning state: %s",
@@ -361,6 +384,49 @@ void BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint16_t op
   ESP_LOGD(TAG, "Framing outgoing SIG Mesh PDU: DST=0x%04X, SEQ=%" PRIu32 ", Opcode=0x%04X, Len=%zu", dst, seq, opcode,
            len);
 
+  uint8_t access_pdu[16] = {0};
+  size_t access_len = 0;
+  if (opcode > 0xFF) {
+    access_pdu[access_len++] = (opcode >> 8) & 0xFF;
+    access_pdu[access_len++] = opcode & 0xFF;
+  } else {
+    access_pdu[access_len++] = opcode & 0xFF;
+  }
+  if (payload != nullptr && len > 0 && access_len + len <= sizeof(access_pdu)) {
+    std::memcpy(access_pdu + access_len, payload, len);
+    access_len += len;
+  }
+
+  uint8_t app_nonce[13] = {0};
+  app_nonce[0] = 0x01;  // Application Nonce
+  app_nonce[1] = 0x00;  // ASZMIC = 0
+  app_nonce[2] = (seq >> 16) & 0xFF;
+  app_nonce[3] = (seq >> 8) & 0xFF;
+  app_nonce[4] = seq & 0xFF;
+  app_nonce[5] = (this->unicast_address_ >> 8) & 0xFF;
+  app_nonce[6] = this->unicast_address_ & 0xFF;
+  app_nonce[7] = (dst >> 8) & 0xFF;
+  app_nonce[8] = dst & 0xFF;
+  app_nonce[9] = (this->iv_index_ >> 24) & 0xFF;
+  app_nonce[10] = (this->iv_index_ >> 16) & 0xFF;
+  app_nonce[11] = (this->iv_index_ >> 8) & 0xFF;
+  app_nonce[12] = this->iv_index_ & 0xFF;
+
+  uint8_t upper_transport_pdu[24] = {0};
+  size_t trans_mic_len = 4;
+  if (this->app_key_.is_set) {
+    encrypt_mesh_payload(this->app_key_.bytes.data(), app_nonce, access_pdu, access_len, upper_transport_pdu,
+                         trans_mic_len);
+  } else {
+    std::memcpy(upper_transport_pdu, access_pdu, access_len);
+  }
+  size_t upper_transport_len = this->app_key_.is_set ? (access_len + trans_mic_len) : access_len;
+
+  uint8_t lower_transport_pdu[25] = {0};
+  lower_transport_pdu[0] = 0x40 | (this->aid_ & 0x3F);  // SEG=0, AKF=1, AID
+  std::memcpy(lower_transport_pdu + 1, upper_transport_pdu, upper_transport_len);
+  size_t lower_transport_len = 1 + upper_transport_len;
+
   uint8_t pdu_buffer[31] = {0};
   pdu_buffer[0] = this->nid_ & 0x7F;
   pdu_buffer[1] = 0x07;  // TTL 7
@@ -370,42 +436,32 @@ void BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint16_t op
   pdu_buffer[5] = (this->unicast_address_ >> 8) & 0xFF;
   pdu_buffer[6] = this->unicast_address_ & 0xFF;
 
-  uint8_t plaintext_payload[20] = {0};
-  plaintext_payload[0] = (dst >> 8) & 0xFF;
-  plaintext_payload[1] = dst & 0xFF;
+  uint8_t net_plaintext[26] = {0};
+  net_plaintext[0] = (dst >> 8) & 0xFF;
+  net_plaintext[1] = dst & 0xFF;
+  std::memcpy(net_plaintext + 2, lower_transport_pdu, lower_transport_len);
+  size_t net_plaintext_len = 2 + lower_transport_len;
 
-  size_t pt_offset = 2;
-  if (opcode > 0xFF) {
-    plaintext_payload[pt_offset++] = (opcode >> 8) & 0xFF;
-    plaintext_payload[pt_offset++] = opcode & 0xFF;
-  } else {
-    plaintext_payload[pt_offset++] = opcode & 0xFF;
-  }
-
-  if (payload != nullptr && len > 0 && pt_offset + len <= sizeof(plaintext_payload)) {
-    std::memcpy(plaintext_payload + pt_offset, payload, len);
-    pt_offset += len;
-  }
-
-  size_t mic_len = 4;
-  uint8_t nonce[13] = {0};
-  nonce[0] = 0x00;  // Network Nonce
-  nonce[1] = 0x07;  // TTL 7
-  nonce[2] = (seq >> 16) & 0xFF;
-  nonce[3] = (seq >> 8) & 0xFF;
-  nonce[4] = seq & 0xFF;
-  nonce[5] = (this->unicast_address_ >> 8) & 0xFF;
-  nonce[6] = this->unicast_address_ & 0xFF;
-  nonce[7] = 0x00;
-  nonce[8] = 0x00;
-  nonce[9] = (this->iv_index_ >> 24) & 0xFF;
-  nonce[10] = (this->iv_index_ >> 16) & 0xFF;
-  nonce[11] = (this->iv_index_ >> 8) & 0xFF;
-  nonce[12] = this->iv_index_ & 0xFF;
+  size_t net_mic_len = 4;
+  uint8_t net_nonce[13] = {0};
+  net_nonce[0] = 0x00;  // Network Nonce
+  net_nonce[1] = 0x07;  // TTL 7
+  net_nonce[2] = (seq >> 16) & 0xFF;
+  net_nonce[3] = (seq >> 8) & 0xFF;
+  net_nonce[4] = seq & 0xFF;
+  net_nonce[5] = (this->unicast_address_ >> 8) & 0xFF;
+  net_nonce[6] = this->unicast_address_ & 0xFF;
+  net_nonce[7] = 0x00;
+  net_nonce[8] = 0x00;
+  net_nonce[9] = (this->iv_index_ >> 24) & 0xFF;
+  net_nonce[10] = (this->iv_index_ >> 16) & 0xFF;
+  net_nonce[11] = (this->iv_index_ >> 8) & 0xFF;
+  net_nonce[12] = this->iv_index_ & 0xFF;
 
   if (this->net_key_.is_set) {
-    encrypt_mesh_payload(this->encryption_key_, nonce, plaintext_payload, pt_offset, pdu_buffer + 7, mic_len);
-    size_t encrypted_frame_len = 7 + pt_offset + mic_len;
+    encrypt_mesh_payload(this->encryption_key_, net_nonce, net_plaintext, net_plaintext_len, pdu_buffer + 7,
+                         net_mic_len);
+    size_t encrypted_frame_len = 7 + net_plaintext_len + net_mic_len;
 
     uint8_t header_to_obfuscate[6] = {pdu_buffer[1], pdu_buffer[2], pdu_buffer[3],
                                       pdu_buffer[4], pdu_buffer[5], pdu_buffer[6]};
@@ -414,8 +470,8 @@ void BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint16_t op
 
     this->last_outgoing_frame_.assign(pdu_buffer, pdu_buffer + encrypted_frame_len);
   } else {
-    std::memcpy(pdu_buffer + 7, plaintext_payload, pt_offset);
-    this->last_outgoing_frame_.assign(pdu_buffer, pdu_buffer + 7 + pt_offset);
+    std::memcpy(pdu_buffer + 7, net_plaintext, net_plaintext_len);
+    this->last_outgoing_frame_.assign(pdu_buffer, pdu_buffer + 7 + net_plaintext_len);
   }
 }
 

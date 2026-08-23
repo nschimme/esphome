@@ -147,6 +147,7 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   static void mesh_k1(const uint8_t n[16], const uint8_t *p, size_t p_len, uint8_t out[16]);
   static void mesh_k2(const uint8_t net_key[16], const uint8_t *p, size_t p_len, uint8_t *out_nid, uint8_t out_ek[16],
                       uint8_t out_pk[16]);
+  static uint8_t mesh_k4(const uint8_t app_key[16]);
   static bool decrypt_mesh_payload(const uint8_t key[16], const uint8_t nonce[13], const uint8_t *ct, size_t ct_len,
                                    uint8_t *pt, size_t mic_len);
   static void encrypt_mesh_payload(const uint8_t key[16], const uint8_t nonce[13], const uint8_t *pt, size_t pt_len,
@@ -178,6 +179,7 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
  protected:
   bool parse_hex_key_(const std::string &hex, MeshKey &out_key);
   void derive_net_keys_();
+  void derive_app_keys_();
 
   bool enable_node_{true};
   bool enable_proxy_{true};
@@ -186,6 +188,7 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   uint8_t nid_{0};
   uint8_t encryption_key_[16]{0};
   uint8_t privacy_key_[16]{0};
+  uint8_t aid_{0};
 
   uint16_t unicast_address_{0x0001};
   uint16_t net_key_index_{0x0000};
