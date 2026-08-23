@@ -226,13 +226,16 @@ void BluetoothSIGMesh::dump_config() {
 }
 
 void BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
-  if (len < 10 || data == nullptr) {
+  if (len < 14 || data == nullptr) {
     return;
   }
+
   uint8_t header_copy[6] = {0};
   std::memcpy(header_copy, data + 1, 6);
-  if (this->net_key_.is_set && len >= 16) {
-    obfuscate_header(this->privacy_key_, this->iv_index_, data + 9, header_copy);
+
+  if (this->net_key_.is_set) {
+    // Privacy Random is bytes 7..13 of the Network PDU
+    obfuscate_header(this->privacy_key_, this->iv_index_, data + 7, header_copy);
   }
 
   MeshNetworkPDUHeader hdr{};
@@ -242,42 +245,45 @@ void BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
   hdr.seq = (static_cast<uint32_t>(header_copy[1]) << 16) | (static_cast<uint32_t>(header_copy[2]) << 8) |
             static_cast<uint32_t>(header_copy[3]);
   hdr.src = (static_cast<uint16_t>(header_copy[4]) << 8) | static_cast<uint16_t>(header_copy[5]);
-  hdr.dst = (static_cast<uint16_t>(data[7]) << 8) | static_cast<uint16_t>(data[8]);
 
-  ESP_LOGVV(TAG, "Mesh Network PDU: SRC=0x%04X, DST=0x%04X, SEQ=%" PRIu32 ", TTL=%u, CTL=%d", hdr.src, hdr.dst, hdr.seq,
-            hdr.ttl, hdr.ctl);
+  const uint8_t *encrypted_pdu = data + 7;
+  size_t encrypted_len = len - 7;
 
-  if (hdr.dst == this->unicast_address_ || hdr.dst == 0xFFFF) {
-    const uint8_t *encrypted_payload = data + 9;
-    size_t encrypted_len = len - 9;
+  if (this->net_key_.is_set && encrypted_len >= 6 && encrypted_len <= 128) {
+    uint8_t nonce[13] = {0};
+    nonce[0] = 0x00;  // Network Nonce
+    nonce[1] = (hdr.ctl ? 0x80 : 0x00) | (hdr.ttl & 0x7F);
+    nonce[2] = (hdr.seq >> 16) & 0xFF;
+    nonce[3] = (hdr.seq >> 8) & 0xFF;
+    nonce[4] = hdr.seq & 0xFF;
+    nonce[5] = (hdr.src >> 8) & 0xFF;
+    nonce[6] = hdr.src & 0xFF;
+    nonce[7] = 0x00;  // Pad
+    nonce[8] = 0x00;
+    nonce[9] = (this->iv_index_ >> 24) & 0xFF;
+    nonce[10] = (this->iv_index_ >> 16) & 0xFF;
+    nonce[11] = (this->iv_index_ >> 8) & 0xFF;
+    nonce[12] = this->iv_index_ & 0xFF;
 
-    if (this->net_key_.is_set && encrypted_len > 4 && encrypted_len <= 128) {
-      uint8_t nonce[13] = {0};
-      nonce[0] = 0x00;  // Network Nonce
-      nonce[1] = (hdr.ctl ? 0x80 : 0x00) | (hdr.ttl & 0x7F);
-      nonce[2] = (hdr.seq >> 16) & 0xFF;
-      nonce[3] = (hdr.seq >> 8) & 0xFF;
-      nonce[4] = hdr.seq & 0xFF;
-      nonce[5] = (hdr.src >> 8) & 0xFF;
-      nonce[6] = hdr.src & 0xFF;
-      nonce[7] = 0x00;  // Pad
-      nonce[8] = 0x00;
-      nonce[9] = (this->iv_index_ >> 24) & 0xFF;
-      nonce[10] = (this->iv_index_ >> 16) & 0xFF;
-      nonce[11] = (this->iv_index_ >> 8) & 0xFF;
-      nonce[12] = this->iv_index_ & 0xFF;
+    uint8_t decrypted[128] = {0};
+    size_t mic_len = hdr.ctl ? 8 : 4;
 
-      uint8_t decrypted[128] = {0};
-      size_t mic_len = hdr.ctl ? 8 : 4;
+    if (decrypt_mesh_payload(this->encryption_key_, nonce, encrypted_pdu, encrypted_len, decrypted, mic_len)) {
+      hdr.dst = (static_cast<uint16_t>(decrypted[0]) << 8) | static_cast<uint16_t>(decrypted[1]);
+      ESP_LOGD(TAG, "Network PDU de-obfuscated and decrypted: SRC=0x%04X, DST=0x%04X, SEQ=%" PRIu32, hdr.src, hdr.dst,
+               hdr.seq);
 
-      if (decrypt_mesh_payload(this->encryption_key_, nonce, encrypted_payload, encrypted_len, decrypted, mic_len)) {
-        ESP_LOGD(TAG, "Network PDU MIC validation and decryption successful");
-        this->process_network_pdu(hdr, decrypted, encrypted_len - mic_len);
-        return;
+      if (hdr.dst == this->unicast_address_ || hdr.dst == 0xFFFF) {
+        size_t transport_pdu_len = encrypted_len - mic_len - 2;
+        this->process_network_pdu(hdr, decrypted + 2, transport_pdu_len);
       }
+      return;
     }
+  }
 
-    this->process_network_pdu(hdr, encrypted_payload, encrypted_len);
+  hdr.dst = (static_cast<uint16_t>(data[7]) << 8) | static_cast<uint16_t>(data[8]);
+  if (hdr.dst == this->unicast_address_ || hdr.dst == 0xFFFF) {
+    this->process_network_pdu(hdr, data + 9, len - 9);
   }
 }
 
@@ -375,7 +381,7 @@ void BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint16_t op
   if (this->net_key_.is_set && pdu_offset >= 9) {
     uint8_t header_to_obfuscate[6] = {pdu_buffer[1], pdu_buffer[2], pdu_buffer[3],
                                       pdu_buffer[4], pdu_buffer[5], pdu_buffer[6]};
-    obfuscate_header(this->privacy_key_, this->iv_index_, pdu_buffer + 9, header_to_obfuscate);
+    obfuscate_header(this->privacy_key_, this->iv_index_, pdu_buffer + 7, header_to_obfuscate);
     std::memcpy(pdu_buffer + 1, header_to_obfuscate, 6);
   }
 
