@@ -44,13 +44,12 @@ class BluetoothSIGMeshLight : public light::LightOutput, public Component {
     if (this->parent_ == nullptr) {
       return;
     }
-    bool is_on = false;
-    state->current_values_as_binary(&is_on);
+    auto values = state->current_values;
+    bool is_on = values.is_on();
     if (!is_on) {
       this->parent_->send_onoff(this->dst_address_, false, true);
     } else {
-      float brightness = 1.0f;
-      state->current_values_as_brightness(&brightness);
+      float brightness = values.get_brightness();
       uint16_t lightness = static_cast<uint16_t>(brightness * 65535.0f);
       this->parent_->send_lightness(this->dst_address_, lightness, true);
     }

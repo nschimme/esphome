@@ -10,7 +10,7 @@ namespace bluetooth_sig_mesh {
 
 template<typename... Ts> class SendOnOffAction : public Action<Ts...> {
  public:
-  explicit SendOnOffAction(BluetoothSIGMesh *parent) : parent_(parent) {}
+  void set_parent(BluetoothSIGMesh *parent) { this->parent_ = parent; }
   TEMPLATABLE_VALUE(uint16_t, dst_address)
   TEMPLATABLE_VALUE(bool, state)
 
@@ -23,12 +23,12 @@ template<typename... Ts> class SendOnOffAction : public Action<Ts...> {
   }
 
  protected:
-  BluetoothSIGMesh *parent_;
+  BluetoothSIGMesh *parent_{nullptr};
 };
 
 template<typename... Ts> class SendLevelAction : public Action<Ts...> {
  public:
-  explicit SendLevelAction(BluetoothSIGMesh *parent) : parent_(parent) {}
+  void set_parent(BluetoothSIGMesh *parent) { this->parent_ = parent; }
   TEMPLATABLE_VALUE(uint16_t, dst_address)
   TEMPLATABLE_VALUE(int16_t, level)
 
@@ -41,12 +41,12 @@ template<typename... Ts> class SendLevelAction : public Action<Ts...> {
   }
 
  protected:
-  BluetoothSIGMesh *parent_;
+  BluetoothSIGMesh *parent_{nullptr};
 };
 
 template<typename... Ts> class SendLightnessAction : public Action<Ts...> {
  public:
-  explicit SendLightnessAction(BluetoothSIGMesh *parent) : parent_(parent) {}
+  void set_parent(BluetoothSIGMesh *parent) { this->parent_ = parent; }
   TEMPLATABLE_VALUE(uint16_t, dst_address)
   TEMPLATABLE_VALUE(uint16_t, lightness)
 
@@ -59,7 +59,7 @@ template<typename... Ts> class SendLightnessAction : public Action<Ts...> {
   }
 
  protected:
-  BluetoothSIGMesh *parent_;
+  BluetoothSIGMesh *parent_{nullptr};
 };
 
 }  // namespace bluetooth_sig_mesh

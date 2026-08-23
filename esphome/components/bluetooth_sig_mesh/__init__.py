@@ -1,8 +1,17 @@
+from esphome import automation
 from esphome.automation import Action
 import esphome.codegen as cg
 from esphome.components import ble_device_base, light, switch
 import esphome.config_validation as cv
-from esphome.const import CONF_ID, CONF_LIGHT_ID, CONF_NAME, PLATFORM_BK72XX, PLATFORM_LN882X
+from esphome.const import (
+    CONF_ID,
+    CONF_LEVEL,
+    CONF_LIGHT_ID,
+    CONF_NAME,
+    CONF_STATE,
+    PLATFORM_BK72XX,
+    PLATFORM_LN882X,
+)
 from esphome.core import CORE
 from esphome.types import ConfigType
 
@@ -66,6 +75,76 @@ BluetoothSIGMesh = bluetooth_sig_mesh_ns.class_(
 SendOnOffAction = bluetooth_sig_mesh_ns.class_("SendOnOffAction", Action)
 SendLevelAction = bluetooth_sig_mesh_ns.class_("SendLevelAction", Action)
 SendLightnessAction = bluetooth_sig_mesh_ns.class_("SendLightnessAction", Action)
+
+CONF_LIGHTNESS = "lightness"
+
+SEND_ONOFF_ACTION_SCHEMA = cv.Schema(
+    {
+        cv.GenerateID(): cv.use_id(BluetoothSIGMesh),
+        cv.Required(CONF_UNICAST_ADDRESS): cv.templatable(cv.hex_uint16_t),
+        cv.Required(CONF_STATE): cv.templatable(cv.boolean),
+    }
+)
+
+SEND_LEVEL_ACTION_SCHEMA = cv.Schema(
+    {
+        cv.GenerateID(): cv.use_id(BluetoothSIGMesh),
+        cv.Required(CONF_UNICAST_ADDRESS): cv.templatable(cv.hex_uint16_t),
+        cv.Required(CONF_LEVEL): cv.templatable(cv.int_range(-32768, 32767)),
+    }
+)
+
+SEND_LIGHTNESS_ACTION_SCHEMA = cv.Schema(
+    {
+        cv.GenerateID(): cv.use_id(BluetoothSIGMesh),
+        cv.Required(CONF_UNICAST_ADDRESS): cv.templatable(cv.hex_uint16_t),
+        cv.Required(CONF_LIGHTNESS): cv.templatable(cv.int_range(0, 65535)),
+    }
+)
+
+
+@automation.register_action(
+    "bluetooth_sig_mesh.send_onoff", SendOnOffAction, SEND_ONOFF_ACTION_SCHEMA
+)
+async def send_onoff_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    parent = await cg.get_variable(config[CONF_ID])
+    cg.add(var.set_parent(parent))
+    template_ = await cg.templatable(config[CONF_UNICAST_ADDRESS], args, cg.uint16)
+    cg.add(var.set_dst_address(template_))
+    template_ = await cg.templatable(config[CONF_STATE], args, cg.bool_)
+    cg.add(var.set_state(template_))
+    return var
+
+
+@automation.register_action(
+    "bluetooth_sig_mesh.send_level", SendLevelAction, SEND_LEVEL_ACTION_SCHEMA
+)
+async def send_level_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    parent = await cg.get_variable(config[CONF_ID])
+    cg.add(var.set_parent(parent))
+    template_ = await cg.templatable(config[CONF_UNICAST_ADDRESS], args, cg.uint16)
+    cg.add(var.set_dst_address(template_))
+    template_ = await cg.templatable(config[CONF_LEVEL], args, cg.int16)
+    cg.add(var.set_level(template_))
+    return var
+
+
+@automation.register_action(
+    "bluetooth_sig_mesh.send_lightness",
+    SendLightnessAction,
+    SEND_LIGHTNESS_ACTION_SCHEMA,
+)
+async def send_lightness_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    parent = await cg.get_variable(config[CONF_ID])
+    cg.add(var.set_parent(parent))
+    template_ = await cg.templatable(config[CONF_UNICAST_ADDRESS], args, cg.uint16)
+    cg.add(var.set_dst_address(template_))
+    template_ = await cg.templatable(config[CONF_LIGHTNESS], args, cg.uint16)
+    cg.add(var.set_lightness(template_))
+    return var
 ESP32BluetoothSIGMesh = bluetooth_sig_mesh_ns.class_(
     "ESP32BluetoothSIGMesh", BluetoothSIGMesh
 )

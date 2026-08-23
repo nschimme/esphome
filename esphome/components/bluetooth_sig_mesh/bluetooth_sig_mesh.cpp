@@ -354,7 +354,12 @@ void BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
   const uint8_t *encrypted_pdu = data + 7;
   size_t encrypted_len = len - 7;
 
-  if (this->net_key_.is_set && encrypted_len >= 6 && encrypted_len <= 128) {
+  if (this->net_key_.is_set) {
+    if (encrypted_len < 6 || encrypted_len > 128) {
+      ESP_LOGW(TAG, "Invalid Network PDU payload length: %zu", encrypted_len);
+      return;
+    }
+
     uint8_t nonce[13] = {0};
     nonce[0] = 0x00;  // Network Nonce
     nonce[1] = (hdr.ctl ? 0x80 : 0x00) | (hdr.ttl & 0x7F);
@@ -398,11 +403,10 @@ void BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
         ESP_LOGD(TAG, "Relaying Mesh PDU from 0x%04X to 0x%04X (Decremented TTL: %u)", hdr.src, hdr.dst, hdr.ttl - 1);
         this->last_outgoing_frame_.assign(retransmitted_pdu, retransmitted_pdu + len);
       }
-      return;
     } else {
       ESP_LOGW(TAG, "Network PDU MIC decryption failed from NID 0x%02X", hdr.nid);
-      return;
     }
+    return;
   }
 
   hdr.dst = (static_cast<uint16_t>(data[7]) << 8) | static_cast<uint16_t>(data[8]);

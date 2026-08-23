@@ -4,6 +4,12 @@
 
 #include "esphome/components/ln882h_ble_tracker/ln882h_ble_tracker.h"
 
+#if !defined(CLANG_TIDY) && __has_include("ln_ble_app.h")
+extern "C" {
+#include "ln_ble_app.h"
+}
+#endif
+
 namespace esphome {
 namespace bluetooth_sig_mesh {
 
@@ -57,6 +63,11 @@ void LN882HBluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint1
     raw_adv[3] = static_cast<uint8_t>(framed_pdu.size() + 1);
     raw_adv[4] = MESH_AD_TYPE_MESSAGE;  // 0x2A Mesh Message AD Type
     std::memcpy(raw_adv + 5, framed_pdu.data(), framed_pdu.size());
+
+#if !defined(CLANG_TIDY) && __has_include("ln_ble_app.h")
+    ln_ble_adv_data_set(raw_adv, framed_pdu.size() + 5);
+    ln_ble_adv_start();
+#endif
   }
 }
 

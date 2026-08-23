@@ -4,6 +4,13 @@
 
 #include "esphome/components/bk72xx_ble_tracker/bk72xx_ble_tracker.h"
 
+#if !defined(CLANG_TIDY) && __has_include("ble_api.h") && __has_include("app_ble.h")
+extern "C" {
+#include "app_ble.h"
+#include "ble_api.h"
+}
+#endif
+
 namespace esphome {
 namespace bluetooth_sig_mesh {
 
@@ -57,6 +64,11 @@ void BK72XXBluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint1
     raw_adv[3] = static_cast<uint8_t>(framed_pdu.size() + 1);
     raw_adv[4] = MESH_AD_TYPE_MESSAGE;  // 0x2A Mesh Message AD Type
     std::memcpy(raw_adv + 5, framed_pdu.data(), framed_pdu.size());
+
+#if !defined(CLANG_TIDY) && __has_include("ble_api.h") && __has_include("app_ble.h")
+    bk_ble_set_adv_data(raw_adv, framed_pdu.size() + 5);
+    bk_ble_adv_start();
+#endif
   }
 }
 
