@@ -171,6 +171,8 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   virtual void on_generic_level_get(uint16_t src, uint16_t dst);
   virtual void on_generic_level_set(uint16_t src, uint16_t dst, int16_t level, bool ack);
 
+  const std::vector<uint8_t> &get_last_outgoing_frame() const { return this->last_outgoing_frame_; }
+
  protected:
   bool parse_hex_key_(const std::string &hex, MeshKey &out_key);
   void derive_net_keys_();
@@ -199,6 +201,8 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
 
   std::vector<switch_::Switch *> bound_switches_{};
   std::vector<light::LightState *> bound_lights_{};
+
+  std::vector<uint8_t> last_outgoing_frame_{};
 };
 
 extern BluetoothSIGMesh *global_bluetooth_sig_mesh;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)

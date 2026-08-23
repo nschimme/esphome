@@ -229,13 +229,19 @@ void BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
   if (len < 10 || data == nullptr) {
     return;
   }
+  uint8_t header_copy[6] = {0};
+  std::memcpy(header_copy, data + 1, 6);
+  if (this->net_key_.is_set && len >= 16) {
+    obfuscate_header(this->privacy_key_, this->iv_index_, data + 9, header_copy);
+  }
+
   MeshNetworkPDUHeader hdr{};
   hdr.nid = data[0] & 0x7F;
-  hdr.ctl = (data[1] & 0x80) != 0;
-  hdr.ttl = data[1] & 0x7F;
-  hdr.seq =
-      (static_cast<uint32_t>(data[2]) << 16) | (static_cast<uint32_t>(data[3]) << 8) | static_cast<uint32_t>(data[4]);
-  hdr.src = (static_cast<uint16_t>(data[5]) << 8) | static_cast<uint16_t>(data[6]);
+  hdr.ctl = (header_copy[0] & 0x80) != 0;
+  hdr.ttl = header_copy[0] & 0x7F;
+  hdr.seq = (static_cast<uint32_t>(header_copy[1]) << 16) | (static_cast<uint32_t>(header_copy[2]) << 8) |
+            static_cast<uint32_t>(header_copy[3]);
+  hdr.src = (static_cast<uint16_t>(header_copy[4]) << 8) | static_cast<uint16_t>(header_copy[5]);
   hdr.dst = (static_cast<uint16_t>(data[7]) << 8) | static_cast<uint16_t>(data[8]);
 
   ESP_LOGVV(TAG, "Mesh Network PDU: SRC=0x%04X, DST=0x%04X, SEQ=%" PRIu32 ", TTL=%u, CTL=%d", hdr.src, hdr.dst, hdr.seq,
@@ -357,7 +363,17 @@ void BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint16_t op
 
   if (payload != nullptr && len > 0 && pdu_offset + len <= sizeof(pdu_buffer)) {
     std::memcpy(pdu_buffer + pdu_offset, payload, len);
+    pdu_offset += len;
   }
+
+  if (this->net_key_.is_set && pdu_offset >= 9) {
+    uint8_t header_to_obfuscate[6] = {pdu_buffer[1], pdu_buffer[2], pdu_buffer[3],
+                                      pdu_buffer[4], pdu_buffer[5], pdu_buffer[6]};
+    obfuscate_header(this->privacy_key_, this->iv_index_, pdu_buffer + 9, header_to_obfuscate);
+    std::memcpy(pdu_buffer + 1, header_to_obfuscate, 6);
+  }
+
+  this->last_outgoing_frame_.assign(pdu_buffer, pdu_buffer + pdu_offset);
 }
 
 void BluetoothSIGMesh::handle_proxy_pdu(const uint8_t *data, size_t len) {
