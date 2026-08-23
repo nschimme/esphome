@@ -57,8 +57,8 @@ void ESP32BluetoothSIGMesh::init_esp32_mesh_() {
           data_in_char->on_write(
               [this](const std::vector<uint8_t> &data) { this->on_proxy_data_in_write(data.data(), data.size()); });
         }
-        proxy_service->create_characteristic(MESH_PROXY_DATA_OUT_UUID,
-                                             ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_NOTIFY);
+        this->proxy_data_out_char_ = proxy_service->create_characteristic(
+            MESH_PROXY_DATA_OUT_UUID, ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_NOTIFY);
         proxy_service->start();
       }
     }
@@ -88,6 +88,16 @@ void ESP32BluetoothSIGMesh::gap_event_handler_(esp_gap_ble_cb_event_t event, esp
 
 void ESP32BluetoothSIGMesh::register_esp32_models_() {
   ESP_LOGI(TAG, "Registering SIG Mesh Standard Models (Configuration Server, Generic OnOff)...");
+}
+
+void ESP32BluetoothSIGMesh::send_proxy_data_out_notification(const uint8_t *data, size_t len) {
+  BluetoothSIGMesh::send_proxy_data_out_notification(data, len);
+#if defined(USE_ESP32_BLE_SERVER)
+  if (this->proxy_data_out_char_ != nullptr && data != nullptr && len > 0) {
+    this->proxy_data_out_char_->setValue(std::vector<uint8_t>(data, data + len));
+    this->proxy_data_out_char_->notify();
+  }
+#endif
 }
 
 void ESP32BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {

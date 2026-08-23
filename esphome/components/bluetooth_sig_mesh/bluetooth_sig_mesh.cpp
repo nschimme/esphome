@@ -399,6 +399,9 @@ void BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
         this->last_outgoing_frame_.assign(retransmitted_pdu, retransmitted_pdu + len);
       }
       return;
+    } else {
+      ESP_LOGW(TAG, "Network PDU MIC decryption failed from NID 0x%02X", hdr.nid);
+      return;
     }
   }
 
@@ -664,23 +667,56 @@ void BluetoothSIGMesh::handle_proxy_pdu(const uint8_t *data, size_t len) {
   if (len < 1 || data == nullptr) {
     return;
   }
+  uint8_t sar = (data[0] >> 6) & 0x03;
   uint8_t pdu_type = data[0] & 0x3F;
+
+  if (sar == 0x00) {  // Complete PDU
+    this->proxy_sar_buffer_.clear();
+  } else if (sar == 0x01) {  // First Segment
+    this->proxy_sar_buffer_.assign(data + 1, data + len);
+    return;
+  } else if (sar == 0x02) {  // Continuation Segment
+    this->proxy_sar_buffer_.insert(this->proxy_sar_buffer_.end(), data + 1, data + len);
+    return;
+  } else if (sar == 0x03) {  // Last Segment
+    this->proxy_sar_buffer_.insert(this->proxy_sar_buffer_.end(), data + 1, data + len);
+    const uint8_t *complete_data = this->proxy_sar_buffer_.data();
+    size_t complete_len = this->proxy_sar_buffer_.size();
+    if (complete_len > 0) {
+      if (pdu_type == PROXY_PDU_TYPE_NET_PDU) {
+        this->process_mesh_pdu(complete_data, complete_len);
+      }
+    }
+    this->proxy_sar_buffer_.clear();
+    return;
+  }
+
+  const uint8_t *payload = (sar == 0x00) ? (data + 1) : this->proxy_sar_buffer_.data();
+  size_t payload_len = (sar == 0x00) ? (len - 1) : this->proxy_sar_buffer_.size();
+
   switch (pdu_type) {
     case PROXY_PDU_TYPE_NET_PDU:
-      this->process_mesh_pdu(data + 1, len - 1);
+      this->process_mesh_pdu(payload, payload_len);
       break;
     case PROXY_PDU_TYPE_CONFIG:
-      if (len >= 2) {
-        uint8_t proxy_opcode = data[1];
-        if (proxy_opcode == PROXY_CONFIG_OPCODE_SET_FILTER_TYPE && len >= 3) {
-          this->set_proxy_filter_type(data[2]);
+      if (payload_len >= 1) {
+        uint8_t proxy_opcode = payload[0];
+        if (proxy_opcode == PROXY_CONFIG_OPCODE_SET_FILTER_TYPE && payload_len >= 2) {
+          this->set_proxy_filter_type(payload[1]);
         }
       }
       break;
     default:
-      ESP_LOGVV(TAG, "Handled Proxy PDU type %u, len %zu", pdu_type, len);
+      ESP_LOGVV(TAG, "Handled Proxy PDU type %u, len %zu", pdu_type, payload_len);
       break;
   }
+}
+
+void BluetoothSIGMesh::send_proxy_data_out_notification(const uint8_t *data, size_t len) {
+  if (!this->enable_proxy_ || data == nullptr || len == 0) {
+    return;
+  }
+  ESP_LOGVV(TAG, "Notifying GATT Proxy Data Out (0x2ADF), len: %zu", len);
 }
 
 void BluetoothSIGMesh::set_proxy_filter_type(uint8_t filter_type) {

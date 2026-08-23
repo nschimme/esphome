@@ -136,6 +136,7 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
 
   void set_enable_node(bool enable_node) { this->enable_node_ = enable_node; }
   void set_enable_proxy(bool enable_proxy) { this->enable_proxy_ = enable_proxy; }
+  void set_advertise_unprovisioned(bool advertise) { this->advertise_unprovisioned_ = advertise; }
   void set_net_key(const std::string &net_key_hex);
   void set_app_key(const std::string &app_key_hex);
   void set_unicast_address(uint16_t address) { this->unicast_address_ = address; }
@@ -180,6 +181,7 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
 
   // GATT Proxy Bearer & Proxy Filter Management
   virtual void handle_proxy_pdu(const uint8_t *data, size_t len);
+  virtual void send_proxy_data_out_notification(const uint8_t *data, size_t len);
   virtual void set_proxy_filter_type(uint8_t filter_type);
   virtual void add_proxy_filter_address(uint16_t address);
   virtual void remove_proxy_filter_address(uint16_t address);
@@ -200,6 +202,7 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
 
   bool enable_node_{true};
   bool enable_proxy_{true};
+  bool advertise_unprovisioned_{false};
   MeshKey net_key_{};
   MeshKey app_key_{};
   uint8_t nid_{0};
@@ -227,6 +230,7 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
 
   ESPPreferenceObject pref_{};
 
+  std::vector<uint8_t> proxy_sar_buffer_{};
   std::vector<uint8_t> last_outgoing_frame_{};
 };
 

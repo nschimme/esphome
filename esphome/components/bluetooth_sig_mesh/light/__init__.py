@@ -17,7 +17,7 @@ BluetoothSIGMeshLight = bluetooth_sig_mesh_ns.class_(
 CONFIG_SCHEMA = light.BRIGHTNESS_ONLY_LIGHT_SCHEMA.extend(
     {
         cv.GenerateID(CONF_OUTPUT_ID): cv.declare_id(BluetoothSIGMeshLight),
-        cv.GenerateID(CONF_DST_ADDRESS): cv.hex_uint16_t,
+        cv.Required(CONF_DST_ADDRESS): cv.hex_uint16_t,
         cv.GenerateID("mesh_id"): cv.use_id(BluetoothSIGMesh),
     }
 )

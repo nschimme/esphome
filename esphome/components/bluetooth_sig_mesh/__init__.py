@@ -15,6 +15,7 @@ CONF_PROVISIONING = "provisioning"
 CONF_NET_KEY = "net_key"
 CONF_APP_KEY = "app_key"
 CONF_UNICAST_ADDRESS = "unicast_address"
+CONF_ADVERTISE_UNPROVISIONED = "advertise_unprovisioned"
 CONF_REMOTE_NODES = "remote_nodes"
 CONF_DEVICE_KEY = "device_key"
 CONF_ELEMENTS = "elements"
@@ -101,6 +102,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_NET_KEY): cv.string,
             cv.Optional(CONF_APP_KEY): cv.string,
             cv.Optional(CONF_UNICAST_ADDRESS): cv.hex_uint16_t,
+            cv.Optional(CONF_ADVERTISE_UNPROVISIONED, default=False): cv.boolean,
             cv.Optional(CONF_REMOTE_NODES): cv.ensure_list(REMOTE_NODE_SCHEMA),
             cv.Optional(CONF_ELEMENTS): cv.ensure_list(ELEMENT_SCHEMA),
         }
@@ -139,6 +141,8 @@ async def to_code(config: ConfigType) -> None:
         cg.add(var.set_app_key(config[CONF_APP_KEY]))
     if CONF_UNICAST_ADDRESS in config:
         cg.add(var.set_unicast_address(config[CONF_UNICAST_ADDRESS]))
+
+    cg.add(var.set_advertise_unprovisioned(config[CONF_ADVERTISE_UNPROVISIONED]))
 
     if CONF_REMOTE_NODES in config:
         for node_conf in config[CONF_REMOTE_NODES]:

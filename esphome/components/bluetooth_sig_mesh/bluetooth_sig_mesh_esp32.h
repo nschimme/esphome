@@ -17,6 +17,7 @@ class ESP32BluetoothSIGMesh : public BluetoothSIGMesh {
 
   void process_mesh_pdu(const uint8_t *data, size_t len) override;
   void send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint16_t opcode, const uint8_t *payload, size_t len) override;
+  void send_proxy_data_out_notification(const uint8_t *data, size_t len) override;
 
  protected:
   void init_esp32_mesh_();
@@ -24,6 +25,9 @@ class ESP32BluetoothSIGMesh : public BluetoothSIGMesh {
   void gap_event_handler_(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param);
 
   esp_ble_adv_params_t adv_params_{};
+#if defined(USE_ESP32_BLE_SERVER)
+  esp32_ble_server::BLECharacteristic *proxy_data_out_char_{nullptr};
+#endif
 };
 
 }  // namespace bluetooth_sig_mesh

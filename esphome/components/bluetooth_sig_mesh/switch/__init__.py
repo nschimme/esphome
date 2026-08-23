@@ -17,7 +17,7 @@ BluetoothSIGMeshSwitch = bluetooth_sig_mesh_ns.class_(
 CONFIG_SCHEMA = switch.switch_schema(BluetoothSIGMeshSwitch).extend(
     {
         cv.GenerateID(CONF_ID): cv.declare_id(BluetoothSIGMeshSwitch),
-        cv.GenerateID(CONF_DST_ADDRESS): cv.hex_uint16_t,
+        cv.Required(CONF_DST_ADDRESS): cv.hex_uint16_t,
         cv.GenerateID("mesh_id"): cv.use_id(BluetoothSIGMesh),
     }
 )
