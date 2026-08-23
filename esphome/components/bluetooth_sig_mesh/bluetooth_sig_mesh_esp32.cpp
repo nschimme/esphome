@@ -77,7 +77,7 @@ void ESP32BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
 void ESP32BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint16_t opcode, const uint8_t *payload,
                                           size_t len) {
   BluetoothSIGMesh::send_mesh_pdu(dst, app_idx, opcode, payload, len);
-  ESP_LOGI(TAG, "Transmitting ESP32 BLE Mesh advertisement packet (DST: 0x%04X, Len: %zu)...", dst, len);
+  ESP_LOGI(TAG, "Broadacting ESP32 BLE Mesh advertisement packet (DST: 0x%04X, Len: %zu)...", dst, len);
 
   uint8_t raw_adv[31] = {0};
   raw_adv[0] = 0x02;  // Length

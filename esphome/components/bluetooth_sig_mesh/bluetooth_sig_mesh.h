@@ -110,6 +110,13 @@ struct MeshNetworkPDUHeader {
   uint16_t dst{0};
 };
 
+struct GATTProxyServiceServer {
+  uint16_t service_uuid{MESH_PROXY_SERVICE_UUID};
+  uint16_t data_in_uuid{MESH_PROXY_DATA_IN_UUID};
+  uint16_t data_out_uuid{MESH_PROXY_DATA_OUT_UUID};
+  bool is_active{false};
+};
+
 class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceListener {
  public:
   BluetoothSIGMesh() = default;
@@ -134,11 +141,16 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   uint16_t get_unicast_address() const { return this->unicast_address_; }
   ProvisioningState get_provisioning_state() const { return this->provision_state_; }
 
-  // Cryptographic Helper Functions
+  // Cryptographic Helper Functions & Derivations
   static void mesh_aes_cmac(const uint8_t key[16], const uint8_t *msg, size_t len, uint8_t out[16]);
   static void mesh_s1(const uint8_t *m, size_t len, uint8_t out[16]);
+  static void mesh_k1(const uint8_t n[16], const uint8_t *p, size_t p_len, uint8_t out[16]);
+  static void mesh_k2(const uint8_t net_key[16], const uint8_t *p, size_t p_len, uint8_t *out_nid, uint8_t out_ek[16],
+                      uint8_t out_pk[16]);
   static bool decrypt_mesh_payload(const uint8_t key[16], const uint8_t nonce[13], const uint8_t *ct, size_t ct_len,
                                    uint8_t *pt, size_t mic_len);
+  static void obfuscate_header(const uint8_t privacy_key[16], uint32_t iv_index, const uint8_t privacy_random[7],
+                               uint8_t header_data[6]);
 
   // Mesh Network and Transport Layer Processing
   virtual void process_mesh_pdu(const uint8_t *data, size_t len);
@@ -151,6 +163,7 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   virtual void set_proxy_filter_type(uint8_t filter_type);
   virtual void add_proxy_filter_address(uint16_t address);
   virtual void remove_proxy_filter_address(uint16_t address);
+  virtual void on_proxy_data_in_write(const uint8_t *data, size_t len);
 
   // Model Event Handlers
   virtual void on_generic_onoff_get(uint16_t src, uint16_t dst);
@@ -160,11 +173,16 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
 
  protected:
   bool parse_hex_key_(const std::string &hex, MeshKey &out_key);
+  void derive_net_keys_();
 
   bool enable_node_{true};
   bool enable_proxy_{true};
   MeshKey net_key_{};
   MeshKey app_key_{};
+  uint8_t nid_{0};
+  uint8_t encryption_key_[16]{0};
+  uint8_t privacy_key_[16]{0};
+
   uint16_t unicast_address_{0x0001};
   uint16_t net_key_index_{0x0000};
   uint16_t app_key_index_{0x0000};
@@ -177,6 +195,7 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
 
   uint8_t proxy_filter_type_{PROXY_FILTER_TYPE_WHITE_LIST};
   std::set<uint16_t> proxy_filter_addresses_{};
+  GATTProxyServiceServer proxy_server_{};
 
   std::vector<switch_::Switch *> bound_switches_{};
   std::vector<light::LightState *> bound_lights_{};

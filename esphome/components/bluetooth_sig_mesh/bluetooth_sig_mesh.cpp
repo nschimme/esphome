@@ -13,6 +13,11 @@ static const char *const TAG = "bluetooth_sig_mesh";
 
 BluetoothSIGMesh *global_bluetooth_sig_mesh = nullptr;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
+void BluetoothSIGMesh::on_proxy_data_in_write(const uint8_t *data, size_t len) {
+  ESP_LOGD(TAG, "GATT Proxy Data In (0x2ADE) write received, len: %zu", len);
+  this->handle_proxy_pdu(data, len);
+}
+
 bool BluetoothSIGMesh::parse_device(const ble_device_base::ESPBTDevice &device) {
   for (const auto &sd : device.get_service_datas()) {
     if (sd.uuid == ble_device_base::ESPBTUUID::from_uint16(MESH_PROXY_SERVICE_UUID) ||
@@ -22,6 +27,24 @@ bool BluetoothSIGMesh::parse_device(const ble_device_base::ESPBTDevice &device) 
       return true;
     }
   }
+
+  for (const auto &md : device.get_manufacturer_datas()) {
+    if (md.data.size() >= 2) {
+      uint8_t ad_type = md.data[0];
+      if (ad_type == MESH_AD_TYPE_MESSAGE) {  // 0x2A Mesh Message
+        ESP_LOGVV(TAG, "Received Mesh Message AD Type 0x2A from MAC %012" PRIX64, device.address_uint64());
+        this->process_mesh_pdu(md.data.data() + 1, md.data.size() - 1);
+        return true;
+      } else if (ad_type == MESH_AD_TYPE_BEACON) {  // 0x2B Mesh Beacon
+        ESP_LOGVV(TAG, "Received Mesh Beacon AD Type 0x2B from MAC %012" PRIX64, device.address_uint64());
+        return true;
+      } else if (ad_type == MESH_AD_TYPE_PB_ADV) {  // 0x29 PB-ADV
+        ESP_LOGVV(TAG, "Received PB-ADV AD Type 0x29 from MAC %012" PRIX64, device.address_uint64());
+        return true;
+      }
+    }
+  }
+
   return false;
 }
 
@@ -53,6 +76,83 @@ void BluetoothSIGMesh::mesh_s1(const uint8_t *m, size_t len, uint8_t out[16]) {
   mesh_aes_cmac(zero_key, m, len, out);
 }
 
+void BluetoothSIGMesh::mesh_k1(const uint8_t n[16], const uint8_t *p, size_t p_len, uint8_t out[16]) {
+  static const uint8_t salt_smk1[4] = {'s', 'm', 'k', '1'};
+  uint8_t salt[16] = {0};
+  mesh_s1(salt_smk1, sizeof(salt_smk1), salt);
+
+  uint8_t t[16] = {0};
+  mesh_aes_cmac(salt, n, 16, t);
+  mesh_aes_cmac(t, p, p_len, out);
+}
+
+void BluetoothSIGMesh::mesh_k2(const uint8_t net_key[16], const uint8_t *p, size_t p_len, uint8_t *out_nid,
+                               uint8_t out_ek[16], uint8_t out_pk[16]) {
+  static const uint8_t salt_smk2[4] = {'s', 'm', 'k', '2'};
+  uint8_t salt[16] = {0};
+  mesh_s1(salt_smk2, sizeof(salt_smk2), salt);
+
+  uint8_t t[16] = {0};
+  mesh_aes_cmac(salt, net_key, 16, t);
+
+  std::vector<uint8_t> msg1(p_len + 1);
+  if (p_len > 0 && p != nullptr) {
+    std::memcpy(msg1.data(), p, p_len);
+  }
+  msg1[p_len] = 0x01;
+  uint8_t t1[16] = {0};
+  mesh_aes_cmac(t, msg1.data(), msg1.size(), t1);
+  if (out_nid != nullptr) {
+    *out_nid = t1[15] & 0x7F;
+  }
+
+  std::vector<uint8_t> msg2(16 + p_len + 1);
+  std::memcpy(msg2.data(), t1, 16);
+  if (p_len > 0 && p != nullptr) {
+    std::memcpy(msg2.data() + 16, p, p_len);
+  }
+  msg2[16 + p_len] = 0x02;
+  mesh_aes_cmac(t, msg2.data(), msg2.size(), out_ek);
+
+  std::vector<uint8_t> msg3(16 + p_len + 1);
+  std::memcpy(msg3.data(), out_ek, 16);
+  if (p_len > 0 && p != nullptr) {
+    std::memcpy(msg3.data() + 16, p, p_len);
+  }
+  msg3[16 + p_len] = 0x03;
+  mesh_aes_cmac(t, msg3.data(), msg3.size(), out_pk);
+}
+
+void BluetoothSIGMesh::obfuscate_header(const uint8_t privacy_key[16], uint32_t iv_index,
+                                        const uint8_t privacy_random[7], uint8_t header_data[6]) {
+  uint8_t privacy_block_in[16] = {0};
+  privacy_block_in[0] = 0x00;
+  privacy_block_in[1] = 0x00;
+  privacy_block_in[2] = 0x00;
+  privacy_block_in[3] = 0x00;
+  privacy_block_in[4] = 0x00;
+  privacy_block_in[5] = (iv_index >> 24) & 0xFF;
+  privacy_block_in[6] = (iv_index >> 16) & 0xFF;
+  privacy_block_in[7] = (iv_index >> 8) & 0xFF;
+  privacy_block_in[8] = iv_index & 0xFF;
+  std::memcpy(privacy_block_in + 9, privacy_random, 7);
+
+  uint8_t privacy_block[16] = {0};
+  ble_device_base::aes128_encrypt_block(privacy_key, privacy_block_in, privacy_block);
+
+  for (size_t i = 0; i < 6; i++) {
+    header_data[i] ^= privacy_block[i];
+  }
+}
+
+void BluetoothSIGMesh::derive_net_keys_() {
+  if (this->net_key_.is_set) {
+    static const uint8_t p[1] = {0x00};
+    mesh_k2(this->net_key_.bytes.data(), p, 1, &this->nid_, this->encryption_key_, this->privacy_key_);
+    ESP_LOGI(TAG, "Derived NetKey parameters: NID=0x%02X", this->nid_);
+  }
+}
+
 bool BluetoothSIGMesh::decrypt_mesh_payload(const uint8_t key[16], const uint8_t nonce[13], const uint8_t *ct,
                                             size_t ct_len, uint8_t *pt, size_t mic_len) {
   if (ct_len < mic_len) {
@@ -79,6 +179,7 @@ bool BluetoothSIGMesh::parse_hex_key_(const std::string &hex, MeshKey &out_key) 
 void BluetoothSIGMesh::set_net_key(const std::string &net_key_hex) {
   if (this->parse_hex_key_(net_key_hex, this->net_key_)) {
     ESP_LOGI(TAG, "Network key configured successfully");
+    this->derive_net_keys_();
     if (this->app_key_.is_set) {
       this->provision_state_ = ProvisioningState::PROVISIONED;
     }
@@ -97,6 +198,10 @@ void BluetoothSIGMesh::set_app_key(const std::string &app_key_hex) {
 void BluetoothSIGMesh::setup() {
   global_bluetooth_sig_mesh = this;
   ESP_LOGCONFIG(TAG, "Setting up Bluetooth SIG Mesh...");
+  if (this->enable_proxy_) {
+    this->proxy_server_.is_active = true;
+    ESP_LOGI(TAG, "Activated GATT Mesh Proxy Server Service (0x1828)");
+  }
   if (this->net_key_.is_set && this->app_key_.is_set) {
     this->provision_state_ = ProvisioningState::PROVISIONED;
   }
@@ -109,9 +214,10 @@ void BluetoothSIGMesh::loop() {
 void BluetoothSIGMesh::dump_config() {
   ESP_LOGCONFIG(TAG, "Bluetooth SIG Mesh:");
   ESP_LOGCONFIG(TAG, "  Node enabled: %s", YESNO(this->enable_node_));
-  ESP_LOGCONFIG(TAG, "  Proxy enabled: %s", YESNO(this->enable_proxy_));
+  ESP_LOGCONFIG(TAG, "  Proxy enabled: %s (GATT Server: %s)", YESNO(this->enable_proxy_),
+                YESNO(this->proxy_server_.is_active));
   ESP_LOGCONFIG(TAG, "  Unicast address: 0x%04X", this->unicast_address_);
-  ESP_LOGCONFIG(TAG, "  NetKey set: %s", YESNO(this->net_key_.is_set));
+  ESP_LOGCONFIG(TAG, "  NetKey set: %s (NID: 0x%02X)", YESNO(this->net_key_.is_set), this->nid_);
   ESP_LOGCONFIG(TAG, "  AppKey set: %s", YESNO(this->app_key_.is_set));
   ESP_LOGCONFIG(TAG, "  Bound switches count: %zu", this->bound_switches_.size());
   ESP_LOGCONFIG(TAG, "  Bound lights count: %zu", this->bound_lights_.size());
@@ -152,8 +258,7 @@ void BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
       uint8_t decrypted[128] = {0};
       size_t mic_len = hdr.ctl ? 8 : 4;
 
-      if (decrypt_mesh_payload(this->net_key_.bytes.data(), nonce, encrypted_payload, encrypted_len, decrypted,
-                               mic_len)) {
+      if (decrypt_mesh_payload(this->encryption_key_, nonce, encrypted_payload, encrypted_len, decrypted, mic_len)) {
         ESP_LOGD(TAG, "Network PDU MIC validation and decryption successful");
         this->process_network_pdu(hdr, decrypted, encrypted_len - mic_len);
         return;
@@ -227,7 +332,32 @@ void BluetoothSIGMesh::process_access_pdu(uint16_t src, uint16_t dst, uint16_t o
 
 void BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint16_t opcode, const uint8_t *payload,
                                      size_t len) {
-  ESP_LOGD(TAG, "Sending SIG Mesh PDU to 0x%04X, Opcode: 0x%04X, AppIdx: 0x%04X, Len: %zu", dst, opcode, app_idx, len);
+  uint32_t seq = this->seq_number_++;
+  ESP_LOGD(TAG, "Framing outgoing SIG Mesh PDU: DST=0x%04X, SEQ=%" PRIu32 ", Opcode=0x%04X, Len=%zu", dst, seq, opcode,
+           len);
+
+  uint8_t pdu_buffer[31] = {0};
+  pdu_buffer[0] = this->nid_ & 0x7F;
+  pdu_buffer[1] = 0x07;  // TTL 7
+  pdu_buffer[2] = (seq >> 16) & 0xFF;
+  pdu_buffer[3] = (seq >> 8) & 0xFF;
+  pdu_buffer[4] = seq & 0xFF;
+  pdu_buffer[5] = (this->unicast_address_ >> 8) & 0xFF;
+  pdu_buffer[6] = this->unicast_address_ & 0xFF;
+  pdu_buffer[7] = (dst >> 8) & 0xFF;
+  pdu_buffer[8] = dst & 0xFF;
+
+  size_t pdu_offset = 9;
+  if (opcode > 0xFF) {
+    pdu_buffer[pdu_offset++] = (opcode >> 8) & 0xFF;
+    pdu_buffer[pdu_offset++] = opcode & 0xFF;
+  } else {
+    pdu_buffer[pdu_offset++] = opcode & 0xFF;
+  }
+
+  if (payload != nullptr && len > 0 && pdu_offset + len <= sizeof(pdu_buffer)) {
+    std::memcpy(pdu_buffer + pdu_offset, payload, len);
+  }
 }
 
 void BluetoothSIGMesh::handle_proxy_pdu(const uint8_t *data, size_t len) {
