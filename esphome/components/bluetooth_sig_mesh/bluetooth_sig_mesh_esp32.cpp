@@ -19,7 +19,7 @@ void ESP32BluetoothSIGMesh::loop() { BluetoothSIGMesh::loop(); }
 void ESP32BluetoothSIGMesh::init_esp32_mesh_() {
   ESP_LOGI(TAG, "Configuring ESP32 BLE Mesh provisioning (PB-ADV & PB-GATT)...");
   if (this->enable_proxy_) {
-    ESP_LOGI(TAG, "Enabling ESP32 GATT Mesh Proxy Service...");
+    ESP_LOGI(TAG, "Enabling ESP32 GATT Mesh Proxy Service (0x1828)...");
   }
 }
 
@@ -32,7 +32,7 @@ void ESP32BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
 }
 
 void ESP32BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, const uint8_t *payload, size_t len) {
-  BluetoothSIGMesh::send_mesh_pdu(dst, app_idx, payload, len);
+  BluetoothSIGMesh::send_mesh_pdu(dst, app_idx, 0, payload, len);
 }
 
 }  // namespace bluetooth_sig_mesh

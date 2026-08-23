@@ -67,23 +67,162 @@ void BluetoothSIGMesh::dump_config() {
 }
 
 void BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
+  if (len < 10 || data == nullptr) {
+    return;
+  }
+  MeshNetworkPDUHeader hdr{};
+  hdr.nid = data[0] & 0x7F;
+  hdr.ctl = (data[1] & 0x80) != 0;
+  hdr.ttl = data[1] & 0x7F;
+  hdr.seq =
+      (static_cast<uint32_t>(data[2]) << 16) | (static_cast<uint32_t>(data[3]) << 8) | static_cast<uint32_t>(data[4]);
+  hdr.src = (static_cast<uint16_t>(data[5]) << 8) | static_cast<uint16_t>(data[6]);
+  hdr.dst = (static_cast<uint16_t>(data[7]) << 8) | static_cast<uint16_t>(data[8]);
+
+  ESP_LOGVV(TAG, "Mesh Network PDU: SRC=0x%04X, DST=0x%04X, SEQ=%" PRIu32 ", TTL=%u, CTL=%d", hdr.src, hdr.dst, hdr.seq,
+            hdr.ttl, hdr.ctl);
+
+  if (hdr.dst == this->unicast_address_ || hdr.dst == 0xFFFF) {
+    this->process_network_pdu(hdr, data + 9, len - 9);
+  }
+}
+
+void BluetoothSIGMesh::process_network_pdu(const MeshNetworkPDUHeader &hdr, const uint8_t *payload, size_t len) {
+  if (len < 2 || payload == nullptr) {
+    return;
+  }
+  uint16_t opcode = 0;
+  size_t opcode_len = 0;
+  if ((payload[0] & 0x80) == 0) {
+    opcode = payload[0];
+    opcode_len = 1;
+  } else if ((payload[0] & 0xC0) == 0x80) {
+    opcode = (static_cast<uint16_t>(payload[0]) << 8) | static_cast<uint16_t>(payload[1]);
+    opcode_len = 2;
+  } else {
+    opcode = (static_cast<uint16_t>(payload[0]) << 8) | static_cast<uint16_t>(payload[1]);
+    opcode_len = 3;
+  }
+
+  this->process_access_pdu(hdr.src, hdr.dst, opcode, payload + opcode_len, len - opcode_len);
+}
+
+void BluetoothSIGMesh::process_access_pdu(uint16_t src, uint16_t dst, uint16_t opcode, const uint8_t *payload,
+                                          size_t len) {
+  switch (opcode) {
+    case OPCODE_GENERIC_ONOFF_GET:
+      this->on_generic_onoff_get(src, dst);
+      break;
+    case OPCODE_GENERIC_ONOFF_SET:
+      if (len >= 1) {
+        bool state = (payload[0] & 0x01) != 0;
+        this->on_generic_onoff_set(src, dst, state, true);
+      }
+      break;
+    case OPCODE_GENERIC_ONOFF_SET_UNACK:
+      if (len >= 1) {
+        bool state = (payload[0] & 0x01) != 0;
+        this->on_generic_onoff_set(src, dst, state, false);
+      }
+      break;
+    case OPCODE_GENERIC_LEVEL_GET:
+      this->on_generic_level_get(src, dst);
+      break;
+    case OPCODE_GENERIC_LEVEL_SET:
+      if (len >= 2) {
+        int16_t level =
+            static_cast<int16_t>((static_cast<uint16_t>(payload[1]) << 8) | static_cast<uint16_t>(payload[0]));
+        this->on_generic_level_set(src, dst, level, true);
+      }
+      break;
+    case OPCODE_GENERIC_LEVEL_SET_UNACK:
+      if (len >= 2) {
+        int16_t level =
+            static_cast<int16_t>((static_cast<uint16_t>(payload[1]) << 8) | static_cast<uint16_t>(payload[0]));
+        this->on_generic_level_set(src, dst, level, false);
+      }
+      break;
+    default:
+      ESP_LOGD(TAG, "Access PDU from 0x%04X, Opcode: 0x%04X, Len: %zu", src, opcode, len);
+      break;
+  }
+}
+
+void BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint16_t opcode, const uint8_t *payload,
+                                     size_t len) {
+  ESP_LOGD(TAG, "Sending SIG Mesh PDU to 0x%04X, Opcode: 0x%04X, AppIdx: 0x%04X, Len: %zu", dst, opcode, app_idx, len);
+}
+
+void BluetoothSIGMesh::handle_proxy_pdu(const uint8_t *data, size_t len) {
   if (len < 1 || data == nullptr) {
     return;
   }
-  ESP_LOGVV(TAG, "Processing SIG Mesh PDU of length %zu", len);
+  uint8_t pdu_type = data[0] & 0x3F;
+  switch (pdu_type) {
+    case PROXY_PDU_TYPE_NET_PDU:
+      this->process_mesh_pdu(data + 1, len - 1);
+      break;
+    case PROXY_PDU_TYPE_CONFIG:
+      if (len >= 2) {
+        uint8_t proxy_opcode = data[1];
+        if (proxy_opcode == PROXY_CONFIG_OPCODE_SET_FILTER_TYPE && len >= 3) {
+          this->set_proxy_filter_type(data[2]);
+        }
+      }
+      break;
+    default:
+      ESP_LOGVV(TAG, "Handled Proxy PDU type %u, len %zu", pdu_type, len);
+      break;
+  }
 }
 
-void BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, const uint8_t *payload, size_t len) {
-  ESP_LOGD(TAG, "Sending SIG Mesh PDU to 0x%04X, app_idx: 0x%04X, len: %zu", dst, app_idx, len);
+void BluetoothSIGMesh::set_proxy_filter_type(uint8_t filter_type) {
+  this->proxy_filter_type_ = filter_type;
+  this->proxy_filter_addresses_.clear();
+  ESP_LOGI(TAG, "Proxy Filter type set to %s",
+           filter_type == PROXY_FILTER_TYPE_WHITE_LIST ? "White List" : "Black List");
+}
+
+void BluetoothSIGMesh::add_proxy_filter_address(uint16_t address) {
+  this->proxy_filter_addresses_.insert(address);
+  ESP_LOGD(TAG, "Added 0x%04X to Proxy Filter", address);
+}
+
+void BluetoothSIGMesh::remove_proxy_filter_address(uint16_t address) {
+  this->proxy_filter_addresses_.erase(address);
+  ESP_LOGD(TAG, "Removed 0x%04X from Proxy Filter", address);
 }
 
 void BluetoothSIGMesh::on_generic_onoff_get(uint16_t src, uint16_t dst) {
-  ESP_LOGD(TAG, "Generic OnOff Get received from 0x%04X to 0x%04X", src, dst);
+  ESP_LOGD(TAG, "Generic OnOff Get from 0x%04X, current state: %s", src, YESNO(this->generic_onoff_state_));
+  uint8_t status_payload[1] = {static_cast<uint8_t>(this->generic_onoff_state_ ? 1 : 0)};
+  this->send_mesh_pdu(src, this->app_key_index_, OPCODE_GENERIC_ONOFF_STATUS, status_payload, sizeof(status_payload));
 }
 
 void BluetoothSIGMesh::on_generic_onoff_set(uint16_t src, uint16_t dst, bool state, bool ack) {
-  ESP_LOGD(TAG, "Generic OnOff Set received from 0x%04X to 0x%04X: state=%s, ack=%s", src, dst, YESNO(state),
-           YESNO(ack));
+  ESP_LOGI(TAG, "Generic OnOff Set from 0x%04X: new_state=%s, ack=%s", src, YESNO(state), YESNO(ack));
+  this->generic_onoff_state_ = state;
+  if (ack) {
+    uint8_t status_payload[1] = {static_cast<uint8_t>(this->generic_onoff_state_ ? 1 : 0)};
+    this->send_mesh_pdu(src, this->app_key_index_, OPCODE_GENERIC_ONOFF_STATUS, status_payload, sizeof(status_payload));
+  }
+}
+
+void BluetoothSIGMesh::on_generic_level_get(uint16_t src, uint16_t dst) {
+  ESP_LOGD(TAG, "Generic Level Get from 0x%04X, current level: %d", src, this->generic_level_state_);
+  uint8_t status_payload[2] = {static_cast<uint8_t>(this->generic_level_state_ & 0xFF),
+                               static_cast<uint8_t>((this->generic_level_state_ >> 8) & 0xFF)};
+  this->send_mesh_pdu(src, this->app_key_index_, OPCODE_GENERIC_LEVEL_STATUS, status_payload, sizeof(status_payload));
+}
+
+void BluetoothSIGMesh::on_generic_level_set(uint16_t src, uint16_t dst, int16_t level, bool ack) {
+  ESP_LOGI(TAG, "Generic Level Set from 0x%04X: new_level=%d, ack=%s", src, level, YESNO(ack));
+  this->generic_level_state_ = level;
+  if (ack) {
+    uint8_t status_payload[2] = {static_cast<uint8_t>(this->generic_level_state_ & 0xFF),
+                                 static_cast<uint8_t>((this->generic_level_state_ >> 8) & 0xFF)};
+    this->send_mesh_pdu(src, this->app_key_index_, OPCODE_GENERIC_LEVEL_STATUS, status_payload, sizeof(status_payload));
+  }
 }
 
 }  // namespace bluetooth_sig_mesh
