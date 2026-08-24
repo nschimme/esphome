@@ -30,6 +30,10 @@ class BluetoothSIGMeshLight : public light::LightOutput, public BluetoothSIGMesh
 
   void write_state(light::LightState *state) override {
     this->state_ = state;
+    if (this->ignore_next_write_) {
+      this->ignore_next_write_ = false;
+      return;
+    }
     if (this->parent_ == nullptr) {
       return;
     }
@@ -59,6 +63,7 @@ class BluetoothSIGMeshLight : public light::LightOutput, public BluetoothSIGMesh
         auto call = this->state_->make_call();
         call.set_brightness(brightness);
         call.set_state(brightness > 0.0f);
+        this->ignore_next_write_ = true;
         call.perform();
       }
     } else if (opcode == OPCODE_LIGHT_CTL_STATUS && len >= 4) {
@@ -73,11 +78,13 @@ class BluetoothSIGMeshLight : public light::LightOutput, public BluetoothSIGMesh
           call.set_color_temperature(mireds);
         }
         call.set_state(brightness > 0.0f);
+        this->ignore_next_write_ = true;
         call.perform();
       }
     }
   }
 
+  bool ignore_next_write_{false};
   bool supports_cct_{false};
   light::LightState *state_{nullptr};
 };

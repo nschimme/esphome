@@ -5,6 +5,7 @@
 #include "esphome/components/ble_device_base/ble_aes_ccm.h"
 #include "esphome/components/ble_device_base/ble_device.h"
 #include "esphome/components/light/light_state.h"
+#include "esphome/components/sensor/sensor.h"
 #include "esphome/components/switch/switch.h"
 #include "esphome/core/component.h"
 #include "esphome/core/helpers.h"
@@ -159,6 +160,9 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   void set_unicast_address(uint16_t address) { this->unicast_address_ = address; }
   void add_bound_switch(switch_::Switch *sw) { this->bound_switches_.push_back(sw); }
   void add_bound_light(light::LightState *lgt) { this->bound_lights_.push_back(lgt); }
+  void add_bound_sensor(sensor::Sensor *sens, uint16_t property_id = 0x004F) {
+    this->bound_sensors_.push_back({sens, property_id});
+  }
   void add_remote_node(uint16_t address, const std::string &device_key_hex, const std::string &name = "");
 
   bool is_relay_enabled() const { return this->relay_enabled_; }
@@ -185,6 +189,7 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   virtual void process_network_pdu(const MeshNetworkPDUHeader &hdr, const uint8_t *payload, size_t len);
   virtual void process_access_pdu(uint16_t src, uint16_t dst, uint16_t opcode, const uint8_t *payload, size_t len);
   virtual void send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint16_t opcode, const uint8_t *payload, size_t len);
+  virtual void transmit_last_outgoing_frame() {}
 
   // Client Command Helpers
   void send_onoff(uint16_t dst, bool state, bool ack = true);
@@ -243,8 +248,14 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   uint8_t proxy_filter_type_{PROXY_FILTER_TYPE_WHITE_LIST};
   std::set<uint16_t> proxy_filter_addresses_{};
 
+  struct BoundSensor {
+    sensor::Sensor *sensor{nullptr};
+    uint16_t property_id{0x004F};
+  };
+
   std::vector<switch_::Switch *> bound_switches_{};
   std::vector<light::LightState *> bound_lights_{};
+  std::vector<BoundSensor> bound_sensors_{};
   std::vector<NodeSeenCallback> node_seen_callbacks_{};
   ProxyDataOutCallback proxy_data_out_callback_{nullptr};
 

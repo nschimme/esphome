@@ -40,29 +40,31 @@ void RP2040BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
   BluetoothSIGMesh::process_mesh_pdu(data, len);
 }
 
-void RP2040BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint16_t opcode, const uint8_t *payload,
-                                           size_t len) {
-  BluetoothSIGMesh::send_mesh_pdu(dst, app_idx, opcode, payload, len);
+void RP2040BluetoothSIGMesh::transmit_last_outgoing_frame() {
   const uint8_t *pdu_data = this->get_last_outgoing_frame_data();
   size_t pdu_len = this->get_last_outgoing_frame_len();
-  ESP_LOGI(TAG, "Broadcasting RP2040 Pico W BLE Mesh advertisement packet (DST: 0x%04X, Framed Len: %zu)...", dst,
-           pdu_len);
+  if (pdu_len == 0 || pdu_data == nullptr || pdu_len > 26) {
+    return;
+  }
 
   this->raw_adv_buffer_.fill(0);
   this->raw_adv_buffer_[0] = 0x02;  // Length
   this->raw_adv_buffer_[1] = 0x01;  // Flags
   this->raw_adv_buffer_[2] = 0x06;  // General Discoverable & BR/EDR Not Supported
+  this->raw_adv_buffer_[3] = static_cast<uint8_t>(pdu_len + 1);
+  this->raw_adv_buffer_[4] = MESH_AD_TYPE_MESSAGE;  // 0x2A Mesh Message AD Type
+  std::memcpy(this->raw_adv_buffer_.data() + 5, pdu_data, pdu_len);
 
-  if (pdu_len > 0 && pdu_len <= 26 && pdu_data != nullptr) {
-    this->raw_adv_buffer_[3] = static_cast<uint8_t>(pdu_len + 1);
-    this->raw_adv_buffer_[4] = MESH_AD_TYPE_MESSAGE;  // 0x2A Mesh Message AD Type
-    std::memcpy(this->raw_adv_buffer_.data() + 5, pdu_data, pdu_len);
-
-    if (rp2040_ble::global_rp2040_ble != nullptr) {
-      gap_advertisements_set_data(pdu_len + 5, this->raw_adv_buffer_.data());
-      gap_advertisements_enable(1);
-    }
+  if (rp2040_ble::global_rp2040_ble != nullptr) {
+    gap_advertisements_set_data(pdu_len + 5, this->raw_adv_buffer_.data());
+    gap_advertisements_enable(1);
   }
+}
+
+void RP2040BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint16_t opcode, const uint8_t *payload,
+                                           size_t len) {
+  BluetoothSIGMesh::send_mesh_pdu(dst, app_idx, opcode, payload, len);
+  this->transmit_last_outgoing_frame();
 }
 
 }  // namespace bluetooth_sig_mesh

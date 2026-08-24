@@ -249,6 +249,16 @@ async def to_code(config: ConfigType) -> None:
             if CONF_SENSOR_ID in elem:
                 sens = await cg.get_variable(elem[CONF_SENSOR_ID])
                 cg.add(var.add_bound_sensor(sens))
+    else:
+        # Auto-bind local switches and lights when elements block is omitted
+        for sw_conf in CORE.config.get("switch", []):
+            if sw_conf.get("platform") != "bluetooth_sig_mesh" and CONF_ID in sw_conf:
+                sw = await cg.get_variable(sw_conf[CONF_ID])
+                cg.add(var.add_bound_switch(sw))
+        for lgt_conf in CORE.config.get("light", []):
+            if lgt_conf.get("platform") != "bluetooth_sig_mesh" and CONF_ID in lgt_conf:
+                lgt = await cg.get_variable(lgt_conf[CONF_ID])
+                cg.add(var.add_bound_light(lgt))
 
     cg.add_define("USE_BLUETOOTH_SIG_MESH")
     cg.add_global(bluetooth_sig_mesh_ns.using)

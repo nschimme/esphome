@@ -77,29 +77,31 @@ void ESP32BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
   BluetoothSIGMesh::process_mesh_pdu(data, len);
 }
 
-void ESP32BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint16_t opcode, const uint8_t *payload,
-                                          size_t len) {
-  BluetoothSIGMesh::send_mesh_pdu(dst, app_idx, opcode, payload, len);
+void ESP32BluetoothSIGMesh::transmit_last_outgoing_frame() {
   const uint8_t *pdu_data = this->get_last_outgoing_frame_data();
   size_t pdu_len = this->get_last_outgoing_frame_len();
-  ESP_LOGI(TAG, "Broadcasting ESP32 BLE Mesh encrypted advertisement packet (DST: 0x%04X, Framed Len: %zu)...", dst,
-           pdu_len);
+  if (pdu_len == 0 || pdu_data == nullptr || pdu_len > 26) {
+    return;
+  }
 
   uint8_t raw_adv[31] = {0};
   raw_adv[0] = 0x02;  // Length
   raw_adv[1] = 0x01;  // Flags
   raw_adv[2] = 0x06;  // General Discoverable & BR/EDR Not Supported
+  raw_adv[3] = static_cast<uint8_t>(pdu_len + 1);
+  raw_adv[4] = MESH_AD_TYPE_MESSAGE;  // 0x2A Mesh Message AD Type
+  std::memcpy(raw_adv + 5, pdu_data, pdu_len);
 
-  if (pdu_len > 0 && pdu_len <= 26 && pdu_data != nullptr) {
-    raw_adv[3] = static_cast<uint8_t>(pdu_len + 1);
-    raw_adv[4] = MESH_AD_TYPE_MESSAGE;  // 0x2A Mesh Message AD Type
-    std::memcpy(raw_adv + 5, pdu_data, pdu_len);
-
-    esp_err_t err = esp_ble_gap_config_adv_data_raw(raw_adv, pdu_len + 5);
-    if (err != ESP_OK) {
-      ESP_LOGE(TAG, "esp_ble_gap_config_adv_data_raw failed: %s", esp_err_to_name(err));
-    }
+  esp_err_t err = esp_ble_gap_config_adv_data_raw(raw_adv, pdu_len + 5);
+  if (err != ESP_OK) {
+    ESP_LOGE(TAG, "esp_ble_gap_config_adv_data_raw failed: %s", esp_err_to_name(err));
   }
+}
+
+void ESP32BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint16_t opcode, const uint8_t *payload,
+                                          size_t len) {
+  BluetoothSIGMesh::send_mesh_pdu(dst, app_idx, opcode, payload, len);
+  this->transmit_last_outgoing_frame();
 }
 
 }  // namespace bluetooth_sig_mesh
