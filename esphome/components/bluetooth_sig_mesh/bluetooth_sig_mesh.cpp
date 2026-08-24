@@ -299,16 +299,17 @@ void BluetoothSIGMesh::process_network_pdu(const MeshNetworkPDUHeader &hdr, cons
     return;
   }
 
-  uint16_t opcode = 0;
+  uint32_t opcode = 0;
   size_t opcode_len = 0;
   if ((access_pdu[0] & 0x80) == 0) {
     opcode = access_pdu[0];
     opcode_len = 1;
   } else if ((access_pdu[0] & 0xC0) == 0x80) {
-    opcode = (static_cast<uint16_t>(access_pdu[0]) << 8) | static_cast<uint16_t>(access_pdu[1]);
+    opcode = (static_cast<uint32_t>(access_pdu[0]) << 8) | static_cast<uint32_t>(access_pdu[1]);
     opcode_len = 2;
-  } else {
-    opcode = (static_cast<uint16_t>(access_pdu[0]) << 8) | static_cast<uint16_t>(access_pdu[1]);
+  } else if (access_pdu_len >= 3) {
+    opcode = (static_cast<uint32_t>(access_pdu[0]) << 16) | (static_cast<uint32_t>(access_pdu[1]) << 8) |
+             static_cast<uint32_t>(access_pdu[2]);
     opcode_len = 3;
   }
 
@@ -483,15 +484,19 @@ void BluetoothSIGMesh::process_access_pdu(uint16_t src, uint16_t dst, uint16_t o
   }
 }
 
-void BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint16_t opcode, const uint8_t *payload,
+void BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint32_t opcode, const uint8_t *payload,
                                      size_t len) {
   uint32_t seq = this->seq_number_++;
-  ESP_LOGD(TAG, "Framing outgoing SIG Mesh PDU: DST=0x%04X, SEQ=%" PRIu32 ", Opcode=0x%04X, Len=%zu", dst, seq, opcode,
-           len);
+  ESP_LOGD(TAG, "Framing outgoing SIG Mesh PDU: DST=0x%04X, SEQ=%" PRIu32 ", Opcode=0x%" PRIx32 ", Len=%zu", dst, seq,
+           opcode, len);
 
   uint8_t access_pdu[16] = {0};
   size_t access_len = 0;
-  if (opcode > 0xFF) {
+  if (opcode > 0xFFFF) {
+    access_pdu[access_len++] = (opcode >> 16) & 0xFF;
+    access_pdu[access_len++] = (opcode >> 8) & 0xFF;
+    access_pdu[access_len++] = opcode & 0xFF;
+  } else if (opcode > 0xFF) {
     access_pdu[access_len++] = (opcode >> 8) & 0xFF;
     access_pdu[access_len++] = opcode & 0xFF;
   } else {

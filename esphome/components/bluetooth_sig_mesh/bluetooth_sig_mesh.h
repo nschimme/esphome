@@ -203,8 +203,8 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   // Mesh Network and Transport Layer Processing
   virtual void process_mesh_pdu(const uint8_t *data, size_t len);
   virtual void process_network_pdu(const MeshNetworkPDUHeader &hdr, const uint8_t *payload, size_t len);
-  virtual void process_access_pdu(uint16_t src, uint16_t dst, uint16_t opcode, const uint8_t *payload, size_t len);
-  virtual void send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint16_t opcode, const uint8_t *payload, size_t len);
+  virtual void process_access_pdu(uint16_t src, uint16_t dst, uint32_t opcode, const uint8_t *payload, size_t len);
+  virtual void send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint32_t opcode, const uint8_t *payload, size_t len);
   virtual void transmit_last_outgoing_frame() {}
 
   // Client Command Helpers
@@ -215,7 +215,7 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   void send_hsl(uint16_t dst, uint16_t lightness, uint16_t hue, uint16_t saturation, bool ack = true);
 
   // Event Listener Callbacks for Client Platforms
-  using NodeSeenCallback = std::function<void(uint16_t src, uint16_t opcode, const uint8_t *payload, size_t len)>;
+  using NodeSeenCallback = std::function<void(uint16_t src, uint32_t opcode, const uint8_t *payload, size_t len)>;
   void add_node_seen_callback(NodeSeenCallback &&cb) { this->node_seen_callbacks_.push_back(std::move(cb)); }
 
   // GATT Proxy Bearer Wrappers
