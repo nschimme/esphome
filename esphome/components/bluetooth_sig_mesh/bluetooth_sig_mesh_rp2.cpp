@@ -48,18 +48,18 @@ void RP2040BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint1
   ESP_LOGI(TAG, "Broadcasting RP2040 Pico W BLE Mesh advertisement packet (DST: 0x%04X, Framed Len: %zu)...", dst,
            pdu_len);
 
-  uint8_t raw_adv[31] = {0};
-  raw_adv[0] = 0x02;  // Length
-  raw_adv[1] = 0x01;  // Flags
-  raw_adv[2] = 0x06;  // General Discoverable & BR/EDR Not Supported
+  this->raw_adv_buffer_.fill(0);
+  this->raw_adv_buffer_[0] = 0x02;  // Length
+  this->raw_adv_buffer_[1] = 0x01;  // Flags
+  this->raw_adv_buffer_[2] = 0x06;  // General Discoverable & BR/EDR Not Supported
 
   if (pdu_len > 0 && pdu_len <= 26 && pdu_data != nullptr) {
-    raw_adv[3] = static_cast<uint8_t>(pdu_len + 1);
-    raw_adv[4] = MESH_AD_TYPE_MESSAGE;  // 0x2A Mesh Message AD Type
-    std::memcpy(raw_adv + 5, pdu_data, pdu_len);
+    this->raw_adv_buffer_[3] = static_cast<uint8_t>(pdu_len + 1);
+    this->raw_adv_buffer_[4] = MESH_AD_TYPE_MESSAGE;  // 0x2A Mesh Message AD Type
+    std::memcpy(this->raw_adv_buffer_.data() + 5, pdu_data, pdu_len);
 
     if (rp2040_ble::global_rp2040_ble != nullptr) {
-      gap_advertisements_set_data(pdu_len + 5, raw_adv);
+      gap_advertisements_set_data(pdu_len + 5, this->raw_adv_buffer_.data());
       gap_advertisements_enable(1);
     }
   }

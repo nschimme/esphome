@@ -24,6 +24,8 @@ class RP2040BluetoothSIGMesh : public BluetoothSIGMesh {
   uint16_t adv_interval_min_{0x0020};
   uint16_t adv_interval_max_{0x0040};
   bool advertising_active_{false};
+
+  std::array<uint8_t, 31> raw_adv_buffer_{0};
 };
 
 }  // namespace bluetooth_sig_mesh
