@@ -1,9 +1,9 @@
 from esphome import automation
 from esphome.automation import Action
 import esphome.codegen as cg
-from esphome.components import ble_device_base, light, switch
+from esphome.components import ble_device_base, light, sensor, switch
 import esphome.config_validation as cv
-from esphome.const import CONF_ID, CONF_LEVEL, CONF_LIGHT_ID, CONF_NAME, CONF_STATE
+from esphome.const import CONF_ID, CONF_LEVEL, CONF_LIGHT_ID, CONF_NAME, CONF_SENSOR_ID, CONF_STATE
 from esphome.core import CORE
 from esphome.types import ConfigType
 
@@ -19,6 +19,16 @@ CONF_REMOTE_NODES = "remote_nodes"
 CONF_DEVICE_KEY = "device_key"
 CONF_BLUETOOTH_SIG_MESH_ID = "bluetooth_sig_mesh_id"
 CONF_NODE_ID = "node_id"
+CONF_ELEMENTS = "elements"
+CONF_SWITCH_ID = "switch_id"
+
+ELEMENT_SCHEMA = cv.Schema(
+    {
+        cv.Optional(CONF_SWITCH_ID): cv.use_id(switch.Switch),
+        cv.Optional(CONF_LIGHT_ID): cv.use_id(light.LightState),
+        cv.Optional(CONF_SENSOR_ID): cv.use_id(sensor.Sensor),
+    }
+)
 
 # Unicast addresses must be in range 0x0001..0x7FFF per Bluetooth SIG Mesh Spec v1.0.1 Section 3.4.2.4
 def validate_unicast_address(value):
@@ -187,6 +197,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_UNICAST_ADDRESS): validate_unicast_address,
             cv.Optional(CONF_ADVERTISE_UNPROVISIONED, default=False): cv.boolean,
             cv.Optional(CONF_REMOTE_NODES): cv.ensure_list(REMOTE_NODE_SCHEMA),
+            cv.Optional(CONF_ELEMENTS): cv.ensure_list(ELEMENT_SCHEMA),
         }
     )
     .extend(ble_device_base.BLE_DEVICE_SCHEMA)
@@ -226,6 +237,18 @@ async def to_code(config: ConfigType) -> None:
                     node_conf[CONF_NAME],
                 )
             )
+
+    if CONF_ELEMENTS in config:
+        for elem in config[CONF_ELEMENTS]:
+            if CONF_SWITCH_ID in elem:
+                sw = await cg.get_variable(elem[CONF_SWITCH_ID])
+                cg.add(var.add_bound_switch(sw))
+            if CONF_LIGHT_ID in elem:
+                lgt = await cg.get_variable(elem[CONF_LIGHT_ID])
+                cg.add(var.add_bound_light(lgt))
+            if CONF_SENSOR_ID in elem:
+                sens = await cg.get_variable(elem[CONF_SENSOR_ID])
+                cg.add(var.add_bound_sensor(sens))
 
     cg.add_define("USE_BLUETOOTH_SIG_MESH")
     cg.add_global(bluetooth_sig_mesh_ns.using)
