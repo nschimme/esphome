@@ -57,6 +57,15 @@ void ESP32BluetoothSIGMesh::gap_event_handler_(esp_gap_ble_cb_event_t event, esp
     case ESP_GAP_BLE_ADV_START_COMPLETE_EVT: {
       if (param->adv_start_cmpl.status != ESP_BT_STATUS_SUCCESS) {
         ESP_LOGE(TAG, "BLE advertising start failed");
+      } else {
+#if defined(USE_ESP32_BLE_SERVER)
+        if (esp32_ble_server::global_ble_server != nullptr) {
+          auto *adv = esp32_ble_server::global_ble_server->get_advertising();
+          if (adv != nullptr) {
+            adv->start();
+          }
+        }
+#endif
       }
       break;
     }

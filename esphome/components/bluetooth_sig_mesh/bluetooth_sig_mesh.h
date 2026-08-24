@@ -2,11 +2,13 @@
 
 #ifdef USE_BLUETOOTH_SIG_MESH
 
+#include "bluetooth_sig_mesh_crypto.h"
+#include "bluetooth_sig_mesh_dfu.h"
+#include "bluetooth_sig_mesh_proxy_bearer.h"
 #include "esphome/components/ble_device_base/ble_aes_ccm.h"
 #include "esphome/components/ble_device_base/ble_device.h"
 #include "esphome/components/light/light_state.h"
 #include "esphome/components/sensor/sensor.h"
-#include "bluetooth_sig_mesh_dfu.h"
 #include "esphome/components/switch/switch.h"
 #include "esphome/core/component.h"
 #include "esphome/core/helpers.h"
@@ -102,6 +104,10 @@ constexpr uint16_t OPCODE_LIGHT_HSL_SET = 0x826E;
 constexpr uint16_t OPCODE_LIGHT_HSL_SET_UNACK = 0x826F;
 constexpr uint16_t OPCODE_LIGHT_HSL_STATUS = 0x8270;
 
+// Sensor Model Opcodes
+constexpr uint16_t OPCODE_SENSOR_GET = 0x8231;
+constexpr uint16_t OPCODE_SENSOR_STATUS = 0x52;
+
 // Bluetooth SIG Mesh Key Sizes
 constexpr size_t MESH_KEY_SIZE = 16;
 constexpr size_t MESH_UUID_SIZE = 16;
@@ -122,11 +128,6 @@ inline int16_t decode_int16_le(const uint8_t *ptr) {
 inline void encode_int16_le(int16_t val, uint8_t *ptr) {
   encode_uint16_le(static_cast<uint16_t>(val), ptr);
 }
-
-struct MeshKey {
-  std::array<uint8_t, MESH_KEY_SIZE> bytes{};
-  bool is_set{false};
-};
 
 enum class ProvisioningState : uint8_t {
   UNPROVISIONED = 0,
@@ -171,19 +172,31 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   uint16_t get_unicast_address() const { return this->unicast_address_; }
   ProvisioningState get_provisioning_state() const { return this->provision_state_; }
 
-  // Cryptographic Helper Functions & Derivations
-  static void mesh_aes_cmac(const uint8_t key[16], const uint8_t *msg, size_t len, uint8_t out[16]);
-  static void mesh_s1(const uint8_t *m, size_t len, uint8_t out[16]);
-  static void mesh_k1(const uint8_t n[16], const uint8_t *p, size_t p_len, uint8_t out[16]);
+  // Cryptographic Static Wrappers
+  static void mesh_aes_cmac(const uint8_t key[16], const uint8_t *msg, size_t len, uint8_t out[16]) {
+    BluetoothSIGMeshCrypto::mesh_aes_cmac(key, msg, len, out);
+  }
+  static void mesh_s1(const uint8_t *m, size_t len, uint8_t out[16]) { BluetoothSIGMeshCrypto::mesh_s1(m, len, out); }
+  static void mesh_k1(const uint8_t n[16], const uint8_t *p, size_t p_len, uint8_t out[16]) {
+    BluetoothSIGMeshCrypto::mesh_k1(n, p, p_len, out);
+  }
   static void mesh_k2(const uint8_t net_key[16], const uint8_t *p, size_t p_len, uint8_t *out_nid, uint8_t out_ek[16],
-                      uint8_t out_pk[16]);
-  static uint8_t mesh_k4(const uint8_t app_key[16]);
+                      uint8_t out_pk[16]) {
+    BluetoothSIGMeshCrypto::mesh_k2(net_key, p, p_len, out_nid, out_ek, out_pk);
+  }
+  static uint8_t mesh_k4(const uint8_t app_key[16]) { return BluetoothSIGMeshCrypto::mesh_k4(app_key); }
   static bool decrypt_mesh_payload(const uint8_t key[16], const uint8_t nonce[13], const uint8_t *ct, size_t ct_len,
-                                   uint8_t *pt, size_t mic_len);
+                                   uint8_t *pt, size_t mic_len) {
+    return BluetoothSIGMeshCrypto::decrypt_mesh_payload(key, nonce, ct, ct_len, pt, mic_len);
+  }
   static void encrypt_mesh_payload(const uint8_t key[16], const uint8_t nonce[13], const uint8_t *pt, size_t pt_len,
-                                   uint8_t *ct, size_t mic_len);
+                                   uint8_t *ct, size_t mic_len) {
+    BluetoothSIGMeshCrypto::encrypt_mesh_payload(key, nonce, pt, pt_len, ct, mic_len);
+  }
   static void obfuscate_header(const uint8_t privacy_key[16], uint32_t iv_index, const uint8_t privacy_random[7],
-                               uint8_t header_data[6]);
+                               uint8_t header_data[6]) {
+    BluetoothSIGMeshCrypto::obfuscate_header(privacy_key, iv_index, privacy_random, header_data);
+  }
 
   // Mesh Network and Transport Layer Processing
   virtual void process_mesh_pdu(const uint8_t *data, size_t len);
@@ -203,16 +216,24 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   using NodeSeenCallback = std::function<void(uint16_t src, uint16_t opcode, const uint8_t *payload, size_t len)>;
   void add_node_seen_callback(NodeSeenCallback &&cb) { this->node_seen_callbacks_.push_back(std::move(cb)); }
 
-  // GATT Proxy Bearer & Proxy Filter Management
-  using ProxyDataOutCallback = std::function<void(const uint8_t *data, size_t len)>;
-  void set_proxy_data_out_callback(ProxyDataOutCallback &&cb) { this->proxy_data_out_callback_ = std::move(cb); }
+  // GATT Proxy Bearer Wrappers
+  using ProxyDataOutCallback = BluetoothSIGMeshProxyBearer::ProxyDataOutCallback;
+  void set_proxy_data_out_callback(ProxyDataOutCallback &&cb) {
+    this->proxy_bearer_.set_proxy_data_out_callback(std::move(cb));
+  }
 
-  virtual void handle_proxy_pdu(const uint8_t *data, size_t len);
-  virtual void send_proxy_data_out_notification(const uint8_t *data, size_t len);
-  virtual void set_proxy_filter_type(uint8_t filter_type);
-  virtual void add_proxy_filter_address(uint16_t address);
-  virtual void remove_proxy_filter_address(uint16_t address);
-  virtual void on_proxy_data_in_write(const uint8_t *data, size_t len);
+  virtual void handle_proxy_pdu(const uint8_t *data, size_t len) { this->proxy_bearer_.handle_proxy_pdu(data, len); }
+  virtual void send_proxy_data_out_notification(const uint8_t *data, size_t len) {
+    this->proxy_bearer_.send_proxy_data_out_notification(data, len);
+  }
+  virtual void set_proxy_filter_type(uint8_t filter_type) { this->proxy_bearer_.set_proxy_filter_type(filter_type); }
+  virtual void add_proxy_filter_address(uint16_t address) { this->proxy_bearer_.add_proxy_filter_address(address); }
+  virtual void remove_proxy_filter_address(uint16_t address) {
+    this->proxy_bearer_.remove_proxy_filter_address(address);
+  }
+  virtual void on_proxy_data_in_write(const uint8_t *data, size_t len) {
+    this->proxy_bearer_.on_proxy_data_in_write(data, len);
+  }
 
   // Model Event Handlers
   virtual void on_generic_onoff_get(uint16_t src, uint16_t dst);
@@ -224,7 +245,6 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   size_t get_last_outgoing_frame_len() const { return this->last_outgoing_frame_len_; }
 
  protected:
-  bool parse_hex_key_(const std::string &hex, MeshKey &out_key);
   void derive_net_keys_();
   void derive_app_keys_();
 
@@ -246,9 +266,6 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   bool generic_onoff_state_{false};
   int16_t generic_level_state_{0};
 
-  uint8_t proxy_filter_type_{PROXY_FILTER_TYPE_WHITE_LIST};
-  std::set<uint16_t> proxy_filter_addresses_{};
-
   struct BoundSensor {
     sensor::Sensor *sensor{nullptr};
     uint16_t property_id{0x004F};
@@ -258,13 +275,10 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   std::vector<light::LightState *> bound_lights_{};
   std::vector<BoundSensor> bound_sensors_{};
   std::vector<NodeSeenCallback> node_seen_callbacks_{};
-  ProxyDataOutCallback proxy_data_out_callback_{nullptr};
 
   ESPPreferenceObject pref_{};
 
-  std::array<uint8_t, 64> proxy_sar_buffer_{};
-  size_t proxy_sar_len_{0};
-
+  BluetoothSIGMeshProxyBearer proxy_bearer_{};
   BluetoothSIGMeshDFUServer dfu_server_{};
 
   std::array<uint8_t, 31> last_outgoing_frame_{};
