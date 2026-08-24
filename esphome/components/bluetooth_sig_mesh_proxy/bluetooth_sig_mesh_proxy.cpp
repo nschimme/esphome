@@ -34,7 +34,7 @@ void BluetoothSIGMeshProxy::setup() {
 void BluetoothSIGMeshProxy::notify_data_out(const uint8_t *data, size_t len) {
 #if defined(USE_ESP32) && defined(USE_ESP32_BLE_SERVER)
   if (this->proxy_data_out_char_ != nullptr && data != nullptr && len > 0) {
-    this->proxy_data_out_char_->setValue(std::vector<uint8_t>(data, data + len));
+    this->proxy_data_out_char_->set_value(data, len);
     this->proxy_data_out_char_->notify();
   }
 #endif

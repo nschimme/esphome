@@ -3,6 +3,7 @@
 #ifdef USE_BLUETOOTH_SIG_MESH
 
 #include "esphome/components/bluetooth_sig_mesh/bluetooth_sig_mesh.h"
+#include "esphome/components/bluetooth_sig_mesh/bluetooth_sig_mesh_node.h"
 #include "esphome/core/component.h"
 
 namespace esphome {
@@ -12,6 +13,12 @@ class BluetoothSIGMeshClientEntity : public Component {
  public:
   void set_parent(BluetoothSIGMesh *parent) { this->parent_ = parent; }
   void set_dst_address(uint16_t dst_address) { this->dst_address_ = dst_address; }
+  void set_node(BluetoothSIGMeshNode *node) {
+    if (node != nullptr) {
+      this->parent_ = node->get_parent();
+      this->dst_address_ = node->get_unicast_address();
+    }
+  }
 
   void setup() override {
     if (this->parent_ != nullptr) {

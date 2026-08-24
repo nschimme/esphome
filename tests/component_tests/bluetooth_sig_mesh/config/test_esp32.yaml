@@ -27,7 +27,7 @@ light:
     output: output_led
   - platform: bluetooth_sig_mesh
     name: "Remote Mesh Light"
-    unicast_address: 0x0004
+    node_id: office_bulb_node
     color_temperature: true
 
 bluetooth_sig_mesh:
@@ -38,6 +38,12 @@ bluetooth_sig_mesh:
   unicast_address: 0x0002
 
 bluetooth_sig_mesh_proxy:
+
+bluetooth_sig_mesh_node:
+  id: office_bulb_node
+  bluetooth_sig_mesh_id: my_mesh
+  unicast_address: 0x0004
+  device_key: "11223344556677889900aabbccddeeff"
 
 cover:
   - platform: bluetooth_sig_mesh
