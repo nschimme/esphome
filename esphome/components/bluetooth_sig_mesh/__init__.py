@@ -194,6 +194,12 @@ ESP32BluetoothSIGMesh = bluetooth_sig_mesh_ns.class_(
 RP2040BluetoothSIGMesh = bluetooth_sig_mesh_ns.class_(
     "RP2040BluetoothSIGMesh", BluetoothSIGMesh
 )
+ZephyrBluetoothSIGMesh = bluetooth_sig_mesh_ns.class_(
+    "ZephyrBluetoothSIGMesh", BluetoothSIGMesh
+)
+LibreTinyBluetoothSIGMesh = bluetooth_sig_mesh_ns.class_(
+    "LibreTinyBluetoothSIGMesh", BluetoothSIGMesh
+)
 
 
 def AUTO_LOAD() -> list[str]:
@@ -229,6 +235,10 @@ async def to_code(config: ConfigType) -> None:
         klass = ESP32BluetoothSIGMesh
     elif CORE.is_rp2:
         klass = RP2040BluetoothSIGMesh
+    elif CORE.is_zephyr:
+        klass = ZephyrBluetoothSIGMesh
+    elif CORE.is_libretiny:
+        klass = LibreTinyBluetoothSIGMesh
     else:
         klass = BluetoothSIGMesh
 
