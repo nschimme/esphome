@@ -223,6 +223,7 @@ class ESPBTDevice {
   const std::vector<ESPBTUUID> &get_service_uuids() const { return service_uuids_; }
   const std::vector<ServiceData> &get_manufacturer_datas() const { return manufacturer_datas_; }
   const std::vector<ServiceData> &get_service_datas() const { return service_datas_; }
+  const std::vector<ServiceData> &get_mesh_datas() const { return mesh_datas_; }
   const std::vector<int8_t> &get_tx_powers() const { return tx_powers_; }
   const optional<uint16_t> &get_appearance() const { return appearance_; }
   const optional<uint8_t> &get_ad_flag() const { return ad_flag_; }
@@ -251,6 +252,7 @@ class ESPBTDevice {
   std::vector<ESPBTUUID> service_uuids_{};
   std::vector<ServiceData> manufacturer_datas_{};
   std::vector<ServiceData> service_datas_{};
+  std::vector<ServiceData> mesh_datas_{};
 #ifdef USE_ESP32
   const esp32_ble::BLEScanResult *scan_result_{nullptr};
 #endif

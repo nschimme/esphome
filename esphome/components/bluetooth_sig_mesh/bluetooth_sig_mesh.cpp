@@ -54,16 +54,19 @@ bool BluetoothSIGMesh::parse_device(const ble_device_base::ESPBTDevice &device) 
       this->handle_proxy_pdu(sd.data.data(), sd.data.size());
       return true;
     }
-    if (sd.uuid == ble_device_base::ESPBTUUID::from_uint16(MESH_AD_TYPE_MESSAGE)) {  // 0x2A Mesh Message
+  }
+
+  for (const auto &md : device.get_mesh_datas()) {
+    if (md.uuid == ble_device_base::ESPBTUUID::from_uint16(MESH_AD_TYPE_MESSAGE)) {  // 0x2A Mesh Message
       ESP_LOGVV(TAG, "Received Mesh Message AD Type 0x2A from MAC %012" PRIX64, device.address_uint64());
-      this->process_mesh_pdu(sd.data.data(), sd.data.size());
+      this->process_mesh_pdu(md.data.data(), md.data.size());
       return true;
     }
-    if (sd.uuid == ble_device_base::ESPBTUUID::from_uint16(MESH_AD_TYPE_BEACON)) {  // 0x2B Mesh Beacon
+    if (md.uuid == ble_device_base::ESPBTUUID::from_uint16(MESH_AD_TYPE_BEACON)) {  // 0x2B Mesh Beacon
       ESP_LOGI(TAG, "Unprovisioned Mesh Beacon (0x2B) discovered from MAC %012" PRIX64, device.address_uint64());
       return true;
     }
-    if (sd.uuid == ble_device_base::ESPBTUUID::from_uint16(MESH_AD_TYPE_PB_ADV)) {  // 0x29 PB-ADV
+    if (md.uuid == ble_device_base::ESPBTUUID::from_uint16(MESH_AD_TYPE_PB_ADV)) {  // 0x29 PB-ADV
       ESP_LOGI(TAG, "Unprovisioned PB-ADV (0x29) advertisement discovered from MAC %012" PRIX64,
                device.address_uint64());
       return true;
