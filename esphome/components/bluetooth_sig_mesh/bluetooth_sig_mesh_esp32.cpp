@@ -95,6 +95,9 @@ void ESP32BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint16
     raw_adv[4] = MESH_AD_TYPE_MESSAGE;  // 0x2A Mesh Message AD Type
     std::memcpy(raw_adv + 5, pdu_data, pdu_len);
 
+    if (esp32_ble::global_esp32_ble != nullptr) {
+      esp32_ble::global_esp32_ble->advertising_start();
+    }
     esp_err_t err = esp_ble_gap_config_adv_data_raw(raw_adv, pdu_len + 5);
     if (err != ESP_OK) {
       ESP_LOGE(TAG, "esp_ble_gap_config_adv_data_raw failed: %s", esp_err_to_name(err));

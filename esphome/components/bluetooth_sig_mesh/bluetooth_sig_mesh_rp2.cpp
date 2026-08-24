@@ -58,8 +58,10 @@ void RP2040BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint1
     raw_adv[4] = MESH_AD_TYPE_MESSAGE;  // 0x2A Mesh Message AD Type
     std::memcpy(raw_adv + 5, pdu_data, pdu_len);
 
-    gap_advertisements_set_data(pdu_len + 5, raw_adv);
-    gap_advertisements_enable(1);
+    if (rp2040_ble::global_rp2040_ble != nullptr) {
+      gap_advertisements_set_data(pdu_len + 5, raw_adv);
+      gap_advertisements_enable(1);
+    }
   }
 }
 
