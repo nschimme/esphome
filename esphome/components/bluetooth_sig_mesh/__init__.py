@@ -210,15 +210,6 @@ def AUTO_LOAD() -> list[str]:
     return ["ble_device_base"]
 
 
-def validate_libretiny_mesh(config):
-    if CORE.is_libretiny and config.get(CONF_RELAY, True):
-        raise cv.Invalid(
-            "LibreTiny platforms (BK72xx / LN882H) currently only support passive BLE Mesh advertisement ingestion. "
-            "Relay mode (relay: true) requires raw GAP transmit APIs not yet exposed in upstream LibreTiny."
-        )
-    return config
-
-
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
@@ -236,7 +227,6 @@ CONFIG_SCHEMA = cv.All(
     )
     .extend(ble_device_base.BLE_DEVICE_SCHEMA)
     .extend(cv.COMPONENT_SCHEMA),
-    validate_libretiny_mesh,
 )
 
 

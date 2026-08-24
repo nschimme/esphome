@@ -99,20 +99,6 @@ void ESP32BluetoothSIGMesh::transmit_last_outgoing_frame() {
     return;
   }
 
-#if defined(USE_ESP32_BLE_SERVER)
-  if (esp32_ble_server::global_ble_server != nullptr) {
-    auto *adv = esp32_ble_server::global_ble_server->get_advertising();
-    if (adv != nullptr) {
-      std::vector<uint8_t> m_data;
-      m_data.push_back(MESH_AD_TYPE_MESSAGE);  // 0x2A Mesh Message
-      m_data.insert(m_data.end(), pdu_data, pdu_data + pdu_len);
-      adv->set_service_data(m_data);
-      adv->start();
-      return;
-    }
-  }
-#endif
-
   uint8_t raw_adv[31] = {0};
   raw_adv[0] = 0x02;  // Length
   raw_adv[1] = 0x01;  // Flags
