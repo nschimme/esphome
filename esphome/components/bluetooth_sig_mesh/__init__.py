@@ -101,7 +101,7 @@ CONF_LIGHTNESS = "lightness"
 
 SEND_ONOFF_ACTION_SCHEMA = cv.Schema(
     {
-        cv.GenerateID(): cv.use_id(BluetoothSIGMesh),
+        cv.GenerateID(CONF_ID): cv.use_id(BluetoothSIGMesh),
         cv.Required(CONF_UNICAST_ADDRESS): cv.templatable(cv.hex_uint16_t),
         cv.Required(CONF_STATE): cv.templatable(cv.boolean),
     }
@@ -109,7 +109,7 @@ SEND_ONOFF_ACTION_SCHEMA = cv.Schema(
 
 SEND_LEVEL_ACTION_SCHEMA = cv.Schema(
     {
-        cv.GenerateID(): cv.use_id(BluetoothSIGMesh),
+        cv.GenerateID(CONF_ID): cv.use_id(BluetoothSIGMesh),
         cv.Required(CONF_UNICAST_ADDRESS): cv.templatable(cv.hex_uint16_t),
         cv.Required(CONF_LEVEL): cv.templatable(cv.int_range(-32768, 32767)),
     }
@@ -117,7 +117,7 @@ SEND_LEVEL_ACTION_SCHEMA = cv.Schema(
 
 SEND_LIGHTNESS_ACTION_SCHEMA = cv.Schema(
     {
-        cv.GenerateID(): cv.use_id(BluetoothSIGMesh),
+        cv.GenerateID(CONF_ID): cv.use_id(BluetoothSIGMesh),
         cv.Required(CONF_UNICAST_ADDRESS): cv.templatable(cv.hex_uint16_t),
         cv.Required(CONF_LIGHTNESS): cv.templatable(cv.int_range(0, 65535)),
     }
