@@ -390,6 +390,7 @@ void BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
         ESP_LOGD(TAG, "Relaying Mesh PDU from 0x%04X to 0x%04X (Decremented TTL: %u)", hdr.src, hdr.dst, hdr.ttl - 1);
         std::memcpy(this->last_outgoing_frame_.data(), retransmitted_pdu, len);
         this->last_outgoing_frame_len_ = len;
+        this->send_proxy_data_out_notification(retransmitted_pdu, len);
       }
     } else {
       ESP_LOGW(TAG, "Network PDU MIC decryption failed from NID 0x%02X", hdr.nid);
