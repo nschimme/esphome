@@ -23,6 +23,7 @@ CONF_ELEMENTS = "elements"
 CONF_SWITCH_ID = "switch_id"
 CONF_BEACON_INTERVAL = "beacon_interval"
 CONF_GATT = "gatt"
+CONF_GROUP_ADDRESS = "group_address"
 
 ELEMENT_SCHEMA = cv.Schema(
     {
@@ -38,6 +39,15 @@ def validate_unicast_address(value):
     if val < 0x0001 or val > 0x7FFF:
         raise cv.Invalid(
             f"Unicast address 0x{val:04X} is invalid. Must be in range 0x0001..0x7FFF per Bluetooth SIG Mesh Specification."
+        )
+    return val
+
+# Multicast group addresses must be in range 0xC000..0xFEFF per Bluetooth SIG Mesh Spec v1.0.1 Section 3.4.2.5
+def validate_group_address(value):
+    val = cv.hex_uint16_t(value)
+    if val < 0xC000 or val > 0xFEFF:
+        raise cv.Invalid(
+            f"Group address 0x{val:04X} is invalid. Must be in range 0xC000..0xFEFF per Bluetooth SIG Mesh Specification."
         )
     return val
 
@@ -74,13 +84,14 @@ CLIENT_ENTITY_BASE_SCHEMA = cv.Schema(
         cv.Optional(CONF_NODE_ID): cv.use_id(BluetoothSIGMeshNode),
         cv.GenerateID(CONF_BLUETOOTH_SIG_MESH_ID): cv.use_id(BluetoothSIGMesh),
         cv.Optional(CONF_UNICAST_ADDRESS): validate_unicast_address,
+        cv.Optional(CONF_GROUP_ADDRESS): validate_group_address,
     }
 ).extend(cv.COMPONENT_SCHEMA)
 
 def CLIENT_ENTITY_SCHEMA(schema):
     return cv.All(
         schema.extend(CLIENT_ENTITY_BASE_SCHEMA),
-        cv.has_at_least_one_key(CONF_NODE_ID, CONF_UNICAST_ADDRESS),
+        cv.has_at_least_one_key(CONF_NODE_ID, CONF_UNICAST_ADDRESS, CONF_GROUP_ADDRESS),
     )
 
 
@@ -88,6 +99,10 @@ async def register_client_entity(var, config):
     if CONF_NODE_ID in config:
         node = await cg.get_variable(config[CONF_NODE_ID])
         cg.add(var.set_node(node))
+    elif CONF_GROUP_ADDRESS in config:
+        parent = await cg.get_variable(config[CONF_BLUETOOTH_SIG_MESH_ID])
+        cg.add(var.set_parent(parent))
+        cg.add(var.set_group_address(config[CONF_GROUP_ADDRESS]))
     else:
         parent = await cg.get_variable(config[CONF_BLUETOOTH_SIG_MESH_ID])
         cg.add(var.set_parent(parent))

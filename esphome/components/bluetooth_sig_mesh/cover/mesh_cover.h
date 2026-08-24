@@ -2,7 +2,7 @@
 
 #ifdef USE_BLUETOOTH_SIG_MESH
 
-#include "esphome/components/bluetooth_sig_mesh/bluetooth_sig_mesh_client.h"
+#include "esphome/components/bluetooth_sig_mesh/client.h"
 #include "esphome/components/cover/cover.h"
 
 namespace esphome {

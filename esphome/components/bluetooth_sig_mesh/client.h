@@ -13,6 +13,7 @@ class BluetoothSIGMeshClientEntity : public Component {
  public:
   void set_parent(BluetoothSIGMesh *parent) { this->parent_ = parent; }
   void set_dst_address(uint16_t dst_address) { this->dst_address_ = dst_address; }
+  void set_group_address(uint16_t group_address) { this->dst_address_ = group_address; }
   void set_node(BluetoothSIGMeshNode *node) {
     if (node != nullptr) {
       this->parent_ = node->get_parent();
