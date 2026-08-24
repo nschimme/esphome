@@ -1,50 +1,26 @@
-esphome:
-  name: test-esp32-mesh
-
-esp32:
-  board: esp32dev
-
-esp32_ble_tracker:
-
-output:
-  - platform: gpio
-    pin: GPIO2
-    id: output_led
-
-switch:
-  - platform: output
-    name: "Mesh Switch"
-    id: mesh_switch
-    output: output_led
-  - platform: bluetooth_sig_mesh
-    name: "Remote Mesh Switch"
-    unicast_address: 0x0003
-
-light:
-  - platform: binary
-    name: "Mesh Light"
-    id: mesh_light
-    output: output_led
-  - platform: bluetooth_sig_mesh
-    name: "Remote Mesh Light"
-    node_id: office_bulb_node
-    color_temperature: true
-
 bluetooth_sig_mesh:
   id: my_mesh
   relay: true
   net_key: "00112233445566778899aabbccddeeff"
   app_key: "ffeeddccbbaa99887766554433221100"
   unicast_address: 0x0002
-  elements:
-    - switch_id: mesh_switch
-    - light_id: mesh_light
 
 bluetooth_sig_mesh_node:
   id: office_bulb_node
   bluetooth_sig_mesh_id: my_mesh
   unicast_address: 0x0004
   device_key: "11223344556677889900aabbccddeeff"
+
+switch:
+  - platform: bluetooth_sig_mesh
+    name: "Remote Mesh Switch"
+    unicast_address: 0x0003
+
+light:
+  - platform: bluetooth_sig_mesh
+    name: "Remote Mesh Light"
+    node_id: office_bulb_node
+    color_temperature: true
 
 cover:
   - platform: bluetooth_sig_mesh

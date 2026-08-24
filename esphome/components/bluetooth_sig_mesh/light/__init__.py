@@ -1,13 +1,12 @@
 import esphome.codegen as cg
 from esphome.components import light
 import esphome.config_validation as cv
+from esphome.const import CONF_COLOR_TEMPERATURE
 
 from .. import CLIENT_ENTITY_SCHEMA, bluetooth_sig_mesh_ns, register_client_entity
 
 DEPENDENCIES = ["bluetooth_sig_mesh"]
 CODEOWNERS = ["@esphome"]
-
-CONF_COLOR_TEMPERATURE = "color_temperature"
 
 BluetoothSIGMeshLight = bluetooth_sig_mesh_ns.class_(
     "BluetoothSIGMeshLight", light.LightOutput, cg.Component
