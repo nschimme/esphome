@@ -40,6 +40,11 @@ def validate_hex_key_128(value):
         raise cv.Invalid("Key contains invalid hex characters")
     return val_clean
 
+bluetooth_sig_mesh_ns = cg.esphome_ns.namespace("bluetooth_sig_mesh")
+BluetoothSIGMesh = bluetooth_sig_mesh_ns.class_(
+    "BluetoothSIGMesh", cg.Component, ble_device_base.ESPBTDeviceListener
+)
+
 REMOTE_NODE_SCHEMA = cv.Schema(
     {
         cv.Required(CONF_UNICAST_ADDRESS): validate_unicast_address,
@@ -48,10 +53,33 @@ REMOTE_NODE_SCHEMA = cv.Schema(
     }
 )
 
-bluetooth_sig_mesh_ns = cg.esphome_ns.namespace("bluetooth_sig_mesh")
-BluetoothSIGMesh = bluetooth_sig_mesh_ns.class_(
-    "BluetoothSIGMesh", cg.Component, ble_device_base.ESPBTDeviceListener
+BluetoothSIGMeshNode = bluetooth_sig_mesh_ns.class_(
+    "BluetoothSIGMeshNode", cg.Component
 )
+
+CLIENT_ENTITY_BASE_SCHEMA = cv.Schema(
+    {
+        cv.Optional(CONF_NODE_ID): cv.use_id(BluetoothSIGMeshNode),
+        cv.GenerateID(CONF_BLUETOOTH_SIG_MESH_ID): cv.use_id(BluetoothSIGMesh),
+        cv.Optional(CONF_UNICAST_ADDRESS): validate_unicast_address,
+    }
+).extend(cv.COMPONENT_SCHEMA)
+
+def CLIENT_ENTITY_SCHEMA(schema):
+    return cv.All(
+        schema.extend(CLIENT_ENTITY_BASE_SCHEMA),
+        cv.has_at_least_one_key(CONF_NODE_ID, CONF_UNICAST_ADDRESS),
+    )
+
+
+async def register_client_entity(var, config):
+    if CONF_NODE_ID in config:
+        node = await cg.get_variable(config[CONF_NODE_ID])
+        cg.add(var.set_node(node))
+    else:
+        parent = await cg.get_variable(config[CONF_BLUETOOTH_SIG_MESH_ID])
+        cg.add(var.set_parent(parent))
+        cg.add(var.set_dst_address(config[CONF_UNICAST_ADDRESS]))
 
 SendOnOffAction = bluetooth_sig_mesh_ns.class_("SendOnOffAction", Action)
 SendLevelAction = bluetooth_sig_mesh_ns.class_("SendLevelAction", Action)

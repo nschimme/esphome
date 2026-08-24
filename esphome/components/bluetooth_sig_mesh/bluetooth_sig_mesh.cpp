@@ -482,13 +482,15 @@ void BluetoothSIGMesh::send_onoff(uint16_t dst, bool state, bool ack) {
 }
 
 void BluetoothSIGMesh::send_level(uint16_t dst, int16_t level, bool ack) {
-  uint8_t payload[2] = {static_cast<uint8_t>(level & 0xFF), static_cast<uint8_t>((level >> 8) & 0xFF)};
+  uint8_t payload[2] = {0};
+  encode_int16_le(level, payload);
   uint16_t opcode = ack ? OPCODE_GENERIC_LEVEL_SET : OPCODE_GENERIC_LEVEL_SET_UNACK;
   this->send_mesh_pdu(dst, this->app_key_index_, opcode, payload, sizeof(payload));
 }
 
 void BluetoothSIGMesh::send_lightness(uint16_t dst, uint16_t lightness, bool ack) {
-  uint8_t payload[2] = {static_cast<uint8_t>(lightness & 0xFF), static_cast<uint8_t>((lightness >> 8) & 0xFF)};
+  uint8_t payload[2] = {0};
+  encode_uint16_le(lightness, payload);
   uint16_t opcode = ack ? OPCODE_LIGHT_LIGHTNESS_SET : OPCODE_LIGHT_LIGHTNESS_SET_UNACK;
   this->send_mesh_pdu(dst, this->app_key_index_, opcode, payload, sizeof(payload));
 }

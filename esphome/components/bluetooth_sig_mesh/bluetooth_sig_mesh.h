@@ -104,6 +104,23 @@ constexpr uint16_t OPCODE_LIGHT_HSL_STATUS = 0x8270;
 constexpr size_t MESH_KEY_SIZE = 16;
 constexpr size_t MESH_UUID_SIZE = 16;
 
+inline uint16_t decode_uint16_le(const uint8_t *ptr) {
+  return static_cast<uint16_t>(ptr[0]) | (static_cast<uint16_t>(ptr[1]) << 8);
+}
+
+inline void encode_uint16_le(uint16_t val, uint8_t *ptr) {
+  ptr[0] = static_cast<uint8_t>(val & 0xFF);
+  ptr[1] = static_cast<uint8_t>((val >> 8) & 0xFF);
+}
+
+inline int16_t decode_int16_le(const uint8_t *ptr) {
+  return static_cast<int16_t>(decode_uint16_le(ptr));
+}
+
+inline void encode_int16_le(int16_t val, uint8_t *ptr) {
+  encode_uint16_le(static_cast<uint16_t>(val), ptr);
+}
+
 struct MeshKey {
   std::array<uint8_t, MESH_KEY_SIZE> bytes{};
   bool is_set{false};
