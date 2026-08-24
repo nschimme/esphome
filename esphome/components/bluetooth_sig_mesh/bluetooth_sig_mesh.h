@@ -6,6 +6,7 @@
 #include "esphome/components/ble_device_base/ble_device.h"
 #include "esphome/components/light/light_state.h"
 #include "esphome/components/sensor/sensor.h"
+#include "bluetooth_sig_mesh_dfu.h"
 #include "esphome/components/switch/switch.h"
 #include "esphome/core/component.h"
 #include "esphome/core/helpers.h"
@@ -263,6 +264,8 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
 
   std::array<uint8_t, 64> proxy_sar_buffer_{};
   size_t proxy_sar_len_{0};
+
+  BluetoothSIGMeshDFUServer dfu_server_{};
 
   std::array<uint8_t, 31> last_outgoing_frame_{};
   size_t last_outgoing_frame_len_{0};

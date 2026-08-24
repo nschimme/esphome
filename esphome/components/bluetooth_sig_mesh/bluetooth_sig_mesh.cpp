@@ -292,6 +292,7 @@ void BluetoothSIGMesh::set_app_key(const std::string &app_key_hex) {
 void BluetoothSIGMesh::setup() {
   global_bluetooth_sig_mesh = this;
   ESP_LOGCONFIG(TAG, "Setting up Bluetooth SIG Mesh...");
+  this->dfu_server_.set_mesh(this);
   this->pref_ = global_preferences->make_preference<uint32_t>(fnv1a_hash("sig_mesh_seq"));
   uint32_t saved_seq = 0;
   if (this->pref_.load(&saved_seq)) {
@@ -624,7 +625,9 @@ void BluetoothSIGMesh::process_access_pdu(uint16_t src, uint16_t dst, uint16_t o
       }
       break;
     default:
-      ESP_LOGD(TAG, "Access PDU from 0x%04X, Opcode: 0x%04X, Len: %zu", src, opcode, len);
+      if (!this->dfu_server_.handle_dfu_opcode(src, opcode, payload, len)) {
+        ESP_LOGD(TAG, "Access PDU from 0x%04X, Opcode: 0x%04X, Len: %zu", src, opcode, len);
+      }
       break;
   }
 }
