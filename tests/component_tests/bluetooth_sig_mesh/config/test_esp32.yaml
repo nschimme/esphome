@@ -16,17 +16,45 @@ switch:
     name: "Mesh Switch"
     id: mesh_switch
     output: output_led
+  - platform: bluetooth_sig_mesh
+    name: "Remote Mesh Switch"
+    unicast_address: 0x0003
 
 light:
   - platform: binary
     name: "Mesh Light"
     id: mesh_light
     output: output_led
+  - platform: bluetooth_sig_mesh
+    name: "Remote Mesh Light"
+    unicast_address: 0x0004
+    color_temperature: true
 
 bluetooth_sig_mesh:
+  id: my_mesh
   relay: true
   net_key: "00112233445566778899aabbccddeeff"
   app_key: "ffeeddccbbaa99887766554433221100"
   unicast_address: 0x0002
 
 bluetooth_sig_mesh_proxy:
+
+cover:
+  - platform: bluetooth_sig_mesh
+    name: "Remote Mesh Cover"
+    unicast_address: 0x0005
+
+binary_sensor:
+  - platform: bluetooth_sig_mesh
+    name: "Remote Motion Sensor"
+    unicast_address: 0x0006
+
+number:
+  - platform: bluetooth_sig_mesh
+    name: "Remote Setpoint Number"
+    unicast_address: 0x0007
+
+button:
+  - platform: bluetooth_sig_mesh
+    name: "Remote Mesh Button"
+    unicast_address: 0x0008

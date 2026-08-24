@@ -17,6 +17,7 @@ CONF_UNICAST_ADDRESS = "unicast_address"
 CONF_ADVERTISE_UNPROVISIONED = "advertise_unprovisioned"
 CONF_REMOTE_NODES = "remote_nodes"
 CONF_DEVICE_KEY = "device_key"
+CONF_BLUETOOTH_SIG_MESH_ID = "bluetooth_sig_mesh_id"
 
 # Unicast addresses must be in range 0x0001..0x7FFF per Bluetooth SIG Mesh Spec v1.0.1 Section 3.4.2.4
 def validate_unicast_address(value):
