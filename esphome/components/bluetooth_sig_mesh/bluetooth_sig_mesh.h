@@ -2,9 +2,9 @@
 
 #ifdef USE_BLUETOOTH_SIG_MESH
 
-#include "bluetooth_sig_mesh_crypto.h"
-#include "bluetooth_sig_mesh_dfu.h"
-#include "bluetooth_sig_mesh_proxy_bearer.h"
+#include "crypto.h"
+#include "dfu.h"
+#include "proxy_bearer.h"
 #include "esphome/components/ble_device_base/ble_aes_ccm.h"
 #include "esphome/components/ble_device_base/ble_device.h"
 #include "esphome/components/light/light_state.h"

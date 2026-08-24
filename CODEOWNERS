@@ -84,7 +84,10 @@ esphome/components/bluetooth_sig_mesh/* @esphome
 esphome/components/bluetooth_sig_mesh/binary_sensor/* @esphome
 esphome/components/bluetooth_sig_mesh/button/* @esphome
 esphome/components/bluetooth_sig_mesh/cover/* @esphome
+esphome/components/bluetooth_sig_mesh/light/* @esphome
 esphome/components/bluetooth_sig_mesh/number/* @esphome
+esphome/components/bluetooth_sig_mesh/sensor/* @esphome
+esphome/components/bluetooth_sig_mesh/switch/* @esphome
 esphome/components/bluetooth_sig_mesh_node/* @esphome
 esphome/components/bluetooth_sig_mesh_proxy/* @esphome
 esphome/components/bm8563/* @abmantis

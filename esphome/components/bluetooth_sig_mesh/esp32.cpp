@@ -1,4 +1,4 @@
-#include "bluetooth_sig_mesh_esp32.h"
+#include "esp32.h"
 
 #if defined(USE_BLUETOOTH_SIG_MESH) && defined(USE_ESP32)
 

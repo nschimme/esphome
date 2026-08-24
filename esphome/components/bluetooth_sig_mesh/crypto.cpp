@@ -1,4 +1,4 @@
-#include "bluetooth_sig_mesh_crypto.h"
+#include "crypto.h"
 
 #ifdef USE_BLUETOOTH_SIG_MESH
 

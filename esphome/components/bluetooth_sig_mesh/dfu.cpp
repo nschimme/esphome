@@ -1,4 +1,4 @@
-#include "bluetooth_sig_mesh_dfu.h"
+#include "dfu.h"
 
 #ifdef USE_BLUETOOTH_SIG_MESH
 

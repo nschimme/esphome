@@ -1,4 +1,4 @@
-#include "bluetooth_sig_mesh_rp2.h"
+#include "rp2040.h"
 
 #if defined(USE_BLUETOOTH_SIG_MESH) && defined(USE_RP2040)
 

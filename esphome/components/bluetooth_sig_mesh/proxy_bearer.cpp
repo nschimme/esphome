@@ -1,4 +1,4 @@
-#include "bluetooth_sig_mesh_proxy_bearer.h"
+#include "proxy_bearer.h"
 
 #ifdef USE_BLUETOOTH_SIG_MESH
 
