@@ -14,9 +14,8 @@ BluetoothSIGMeshLight = bluetooth_sig_mesh_ns.class_(
 )
 
 CONFIG_SCHEMA = CLIENT_ENTITY_SCHEMA(
-    light.BRIGHTNESS_ONLY_LIGHT_SCHEMA.extend(
+    light.light_schema(BluetoothSIGMeshLight, light.LightType.BRIGHTNESS_ONLY).extend(
         {
-            cv.GenerateID(light.CONF_OUTPUT_ID): cv.declare_id(BluetoothSIGMeshLight),
             cv.Optional(CONF_COLOR_TEMPERATURE): cv.boolean,
         }
     )
@@ -26,5 +25,5 @@ CONFIG_SCHEMA = CLIENT_ENTITY_SCHEMA(
 async def to_code(config):
     var = cg.new_Pvariable(config[light.CONF_OUTPUT_ID])
     await cg.register_component(var, config)
-    await light.register_light(var, config)
     await register_client_entity(var, config)
+    await light.register_light(var, config)

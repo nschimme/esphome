@@ -122,7 +122,26 @@ void BluetoothSIGMesh::setup() {
 }
 
 void BluetoothSIGMesh::loop() {
-  // Main loop processing for mesh PDU routing and proxy state updates
+  uint32_t now = millis();
+  if (this->beacon_interval_ms_ > 0 && now - this->last_beacon_time_ >= this->beacon_interval_ms_) {
+    this->last_beacon_time_ = now;
+    if (this->is_provisioned()) {
+      // Secure Network Beacon (AD Type 0x2B, 12 bytes):
+      // Byte 0: Beacon Type 0x01 (Secure Network Beacon)
+      // Byte 1: Flags 0x00
+      // Bytes 2..9: Network ID / Hash (8 bytes)
+      // Bytes 10..13: IV Index (4 bytes, Big Endian)
+      uint8_t beacon_pdu[12] = {0};
+      beacon_pdu[0] = 0x01;  // Secure Network Beacon
+      beacon_pdu[1] = 0x00;  // Flags
+      std::memcpy(beacon_pdu + 2, this->net_key_.bytes.data(), 8);  // Network ID
+      beacon_pdu[10] = (this->iv_index_ >> 24) & 0xFF;
+      beacon_pdu[11] = (this->iv_index_ >> 16) & 0xFF;
+
+      ESP_LOGVV(TAG, "Broadcasting periodic Secure Network Beacon (0x2B)...");
+      this->send_proxy_data_out_notification(beacon_pdu, sizeof(beacon_pdu));
+    }
+  }
 }
 
 void BluetoothSIGMesh::dump_config() {

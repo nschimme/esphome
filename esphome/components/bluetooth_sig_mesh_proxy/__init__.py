@@ -11,6 +11,7 @@ DEPENDENCIES = ["bluetooth_sig_mesh"]
 CODEOWNERS = ["@esphome"]
 
 CONF_MESH_ID = "mesh_id"
+CONF_NODE_IDENTITY_ADVERTISING = "node_identity_advertising"
 
 bluetooth_sig_mesh_proxy_ns = cg.esphome_ns.namespace("bluetooth_sig_mesh_proxy")
 BluetoothSIGMeshProxy = bluetooth_sig_mesh_proxy_ns.class_(
@@ -21,6 +22,7 @@ CONFIG_SCHEMA = cv.Schema(
     {
         cv.GenerateID(): cv.declare_id(BluetoothSIGMeshProxy),
         cv.GenerateID(CONF_MESH_ID): cv.use_id(BluetoothSIGMesh),
+        cv.Optional(CONF_NODE_IDENTITY_ADVERTISING, default=False): cv.boolean,
     }
 ).extend(cv.COMPONENT_SCHEMA)
 
@@ -31,6 +33,7 @@ async def to_code(config: ConfigType) -> None:
 
     mesh = await cg.get_variable(config[CONF_MESH_ID])
     cg.add(var.set_mesh_parent(mesh))
+    cg.add(var.set_node_identity_advertising(config[CONF_NODE_IDENTITY_ADVERTISING]))
 
     if CORE.is_esp32:
         cg.add_define("USE_BLUETOOTH_SIG_MESH_PROXY")

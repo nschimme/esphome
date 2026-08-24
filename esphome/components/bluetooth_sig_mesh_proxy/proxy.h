@@ -16,6 +16,8 @@ namespace bluetooth_sig_mesh_proxy {
 
 class BluetoothSIGMeshProxy : public Component {
  public:
+  void set_node_identity_advertising(bool enable) { this->node_identity_advertising_ = enable; }
+
   void set_mesh_parent(bluetooth_sig_mesh::BluetoothSIGMesh *parent) {
     this->parent_ = parent;
     if (this->parent_ != nullptr) {
@@ -29,6 +31,7 @@ class BluetoothSIGMeshProxy : public Component {
 
  protected:
   bluetooth_sig_mesh::BluetoothSIGMesh *parent_{nullptr};
+  bool node_identity_advertising_{false};
 #if defined(USE_ESP32) && defined(USE_ESP32_BLE_SERVER)
   esp32_ble_server::BLECharacteristic *proxy_data_out_char_{nullptr};
 #endif

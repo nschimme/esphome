@@ -12,7 +12,7 @@ void BluetoothSIGMeshProxy::setup() {
 #if defined(USE_ESP32) && defined(USE_ESP32_BLE_SERVER)
   if (esp32_ble_server::global_ble_server != nullptr) {
     auto *proxy_service = esp32_ble_server::global_ble_server->create_service(
-        esp32_ble::ESPBTUUID::from_uint16(bluetooth_sig_mesh::MESH_PROXY_SERVICE_UUID), true);
+        esp32_ble::ESPBTUUID::from_uint16(bluetooth_sig_mesh::MESH_PROXY_SERVICE_UUID), this->node_identity_advertising_);
     if (proxy_service != nullptr) {
       auto *data_in_char = proxy_service->create_characteristic(
           bluetooth_sig_mesh::MESH_PROXY_DATA_IN_UUID, ESP_GATT_CHAR_PROP_BIT_WRITE | ESP_GATT_CHAR_PROP_BIT_WRITE_NR);

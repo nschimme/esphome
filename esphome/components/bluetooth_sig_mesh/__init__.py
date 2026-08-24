@@ -21,6 +21,7 @@ CONF_BLUETOOTH_SIG_MESH_ID = "bluetooth_sig_mesh_id"
 CONF_NODE_ID = "node_id"
 CONF_ELEMENTS = "elements"
 CONF_SWITCH_ID = "switch_id"
+CONF_BEACON_INTERVAL = "beacon_interval"
 
 ELEMENT_SCHEMA = cv.Schema(
     {
@@ -196,6 +197,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_APP_KEY): validate_hex_key_128,
             cv.Optional(CONF_UNICAST_ADDRESS): validate_unicast_address,
             cv.Optional(CONF_ADVERTISE_UNPROVISIONED, default=False): cv.boolean,
+            cv.Optional(CONF_BEACON_INTERVAL, default="0s"): cv.positive_time_period_milliseconds,
             cv.Optional(CONF_REMOTE_NODES): cv.ensure_list(REMOTE_NODE_SCHEMA),
             cv.Optional(CONF_ELEMENTS): cv.ensure_list(ELEMENT_SCHEMA),
         }
@@ -227,6 +229,7 @@ async def to_code(config: ConfigType) -> None:
         cg.add(var.set_unicast_address(config[CONF_UNICAST_ADDRESS]))
 
     cg.add(var.set_advertise_unprovisioned(config[CONF_ADVERTISE_UNPROVISIONED]))
+    cg.add(var.set_beacon_interval(config[CONF_BEACON_INTERVAL]))
 
     if CONF_REMOTE_NODES in config:
         for node_conf in config[CONF_REMOTE_NODES]:
