@@ -158,6 +158,7 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   void set_relay(bool relay) { this->relay_enabled_ = relay; }
   void set_advertise_unprovisioned(bool advertise) { this->advertise_unprovisioned_ = advertise; }
   void set_beacon_interval(uint32_t interval_ms) { this->beacon_interval_ms_ = interval_ms; }
+  void set_gatt_enabled(bool gatt) { this->gatt_enabled_ = gatt; }
   void set_net_key(const std::string &net_key_hex);
   void set_app_key(const std::string &app_key_hex);
   void set_unicast_address(uint16_t address) { this->unicast_address_ = address; }
@@ -251,6 +252,7 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
 
   bool relay_enabled_{true};
   bool advertise_unprovisioned_{false};
+  bool gatt_enabled_{false};
   MeshKey net_key_{};
   MeshKey app_key_{};
   uint8_t nid_{0};
