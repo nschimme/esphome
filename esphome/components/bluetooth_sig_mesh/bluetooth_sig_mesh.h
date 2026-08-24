@@ -53,6 +53,11 @@ constexpr uint8_t PROXY_FILTER_TYPE_BLACK_LIST = 0x01;
 // Mesh Model IDs (SIG Defined 16-bit)
 constexpr uint16_t MESH_MODEL_ID_CONFIG_SERVER = 0x0000;
 constexpr uint16_t MESH_MODEL_ID_CONFIG_CLIENT = 0x0001;
+constexpr uint16_t MESH_MODEL_ID_LIGHT_CTL_SERVER = 0x1303;
+constexpr uint16_t MESH_MODEL_ID_LIGHT_CTL_CLIENT = 0x1305;
+constexpr uint16_t MESH_MODEL_ID_LIGHT_CTL_TEMP_SERVER = 0x1306;
+constexpr uint16_t MESH_MODEL_ID_LIGHT_HSL_SERVER = 0x1307;
+constexpr uint16_t MESH_MODEL_ID_LIGHT_HSL_CLIENT = 0x1309;
 constexpr uint16_t MESH_MODEL_ID_HEALTH_SERVER = 0x0002;
 constexpr uint16_t MESH_MODEL_ID_GENERIC_ONOFF_SERVER = 0x1000;
 constexpr uint16_t MESH_MODEL_ID_GENERIC_ONOFF_CLIENT = 0x1001;
@@ -78,6 +83,22 @@ constexpr uint16_t OPCODE_LIGHT_LIGHTNESS_GET = 0x824B;
 constexpr uint16_t OPCODE_LIGHT_LIGHTNESS_SET = 0x824C;
 constexpr uint16_t OPCODE_LIGHT_LIGHTNESS_SET_UNACK = 0x824D;
 constexpr uint16_t OPCODE_LIGHT_LIGHTNESS_STATUS = 0x824E;
+
+// Light CTL (Color Temperature) Opcodes
+constexpr uint16_t OPCODE_LIGHT_CTL_GET = 0x825D;
+constexpr uint16_t OPCODE_LIGHT_CTL_SET = 0x825E;
+constexpr uint16_t OPCODE_LIGHT_CTL_SET_UNACK = 0x825F;
+constexpr uint16_t OPCODE_LIGHT_CTL_STATUS = 0x8260;
+constexpr uint16_t OPCODE_LIGHT_CTL_TEMPERATURE_GET = 0x8261;
+constexpr uint16_t OPCODE_LIGHT_CTL_TEMPERATURE_SET = 0x8262;
+constexpr uint16_t OPCODE_LIGHT_CTL_TEMPERATURE_SET_UNACK = 0x8263;
+constexpr uint16_t OPCODE_LIGHT_CTL_TEMPERATURE_STATUS = 0x8264;
+
+// Light HSL (Hue, Saturation, Lightness) Opcodes
+constexpr uint16_t OPCODE_LIGHT_HSL_GET = 0x826D;
+constexpr uint16_t OPCODE_LIGHT_HSL_SET = 0x826E;
+constexpr uint16_t OPCODE_LIGHT_HSL_SET_UNACK = 0x826F;
+constexpr uint16_t OPCODE_LIGHT_HSL_STATUS = 0x8270;
 
 // Bluetooth SIG Mesh Key Sizes
 constexpr size_t MESH_KEY_SIZE = 16;
@@ -152,6 +173,8 @@ class BluetoothSIGMesh : public Component, public ble_device_base::ESPBTDeviceLi
   void send_onoff(uint16_t dst, bool state, bool ack = true);
   void send_level(uint16_t dst, int16_t level, bool ack = true);
   void send_lightness(uint16_t dst, uint16_t lightness, bool ack = true);
+  void send_ctl(uint16_t dst, uint16_t lightness, uint16_t temperature, int16_t delta_uv, bool ack = true);
+  void send_hsl(uint16_t dst, uint16_t lightness, uint16_t hue, uint16_t saturation, bool ack = true);
 
   // Event Listener Callbacks for Client Platforms
   using NodeSeenCallback = std::function<void(uint16_t src, uint16_t opcode, const uint8_t *payload, size_t len)>;

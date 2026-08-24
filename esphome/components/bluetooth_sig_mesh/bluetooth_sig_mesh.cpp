@@ -493,6 +493,24 @@ void BluetoothSIGMesh::send_lightness(uint16_t dst, uint16_t lightness, bool ack
   this->send_mesh_pdu(dst, this->app_key_index_, opcode, payload, sizeof(payload));
 }
 
+void BluetoothSIGMesh::send_ctl(uint16_t dst, uint16_t lightness, uint16_t temperature, int16_t delta_uv, bool ack) {
+  uint8_t payload[6] = {
+      static_cast<uint8_t>(lightness & 0xFF), static_cast<uint8_t>((lightness >> 8) & 0xFF),
+      static_cast<uint8_t>(temperature & 0xFF), static_cast<uint8_t>((temperature >> 8) & 0xFF),
+      static_cast<uint8_t>(delta_uv & 0xFF), static_cast<uint8_t>((delta_uv >> 8) & 0xFF)};
+  uint16_t opcode = ack ? OPCODE_LIGHT_CTL_SET : OPCODE_LIGHT_CTL_SET_UNACK;
+  this->send_mesh_pdu(dst, this->app_key_index_, opcode, payload, sizeof(payload));
+}
+
+void BluetoothSIGMesh::send_hsl(uint16_t dst, uint16_t lightness, uint16_t hue, uint16_t saturation, bool ack) {
+  uint8_t payload[6] = {
+      static_cast<uint8_t>(lightness & 0xFF), static_cast<uint8_t>((lightness >> 8) & 0xFF),
+      static_cast<uint8_t>(hue & 0xFF), static_cast<uint8_t>((hue >> 8) & 0xFF),
+      static_cast<uint8_t>(saturation & 0xFF), static_cast<uint8_t>((saturation >> 8) & 0xFF)};
+  uint16_t opcode = ack ? OPCODE_LIGHT_HSL_SET : OPCODE_LIGHT_HSL_SET_UNACK;
+  this->send_mesh_pdu(dst, this->app_key_index_, opcode, payload, sizeof(payload));
+}
+
 void BluetoothSIGMesh::process_access_pdu(uint16_t src, uint16_t dst, uint16_t opcode, const uint8_t *payload,
                                           size_t len) {
   for (const auto &cb : this->node_seen_callbacks_) {
@@ -529,6 +547,49 @@ void BluetoothSIGMesh::process_access_pdu(uint16_t src, uint16_t dst, uint16_t o
         int16_t level =
             static_cast<int16_t>((static_cast<uint16_t>(payload[1]) << 8) | static_cast<uint16_t>(payload[0]));
         this->on_generic_level_set(src, dst, level, false);
+      }
+      break;
+    case OPCODE_LIGHT_CTL_SET:
+    case OPCODE_LIGHT_CTL_SET_UNACK:
+      if (len >= 4) {
+        uint16_t lightness = static_cast<uint16_t>(payload[0]) | (static_cast<uint16_t>(payload[1]) << 8);
+        uint16_t temp = static_cast<uint16_t>(payload[2]) | (static_cast<uint16_t>(payload[3]) << 8);
+        for (auto *lgt : this->bound_lights_) {
+          if (lgt != nullptr) {
+            auto call = lgt->make_call();
+            call.set_brightness(static_cast<float>(lightness) / 65535.0f);
+            if (temp >= 800 && temp <= 20000) {
+              float mireds = 1000000.0f / static_cast<float>(temp);
+              call.set_color_temperature(mireds);
+            }
+            call.set_state(lightness > 0);
+            call.perform();
+          }
+        }
+        if (opcode == OPCODE_LIGHT_CTL_SET) {
+          uint8_t status_payload[6] = {payload[0], payload[1], payload[2], payload[3], 0x00, 0x00};
+          this->send_mesh_pdu(src, this->app_key_index_, OPCODE_LIGHT_CTL_STATUS, status_payload, sizeof(status_payload));
+        }
+      }
+      break;
+    case OPCODE_LIGHT_HSL_SET:
+    case OPCODE_LIGHT_HSL_SET_UNACK:
+      if (len >= 6) {
+        uint16_t lightness = static_cast<uint16_t>(payload[0]) | (static_cast<uint16_t>(payload[1]) << 8);
+        uint16_t hue = static_cast<uint16_t>(payload[2]) | (static_cast<uint16_t>(payload[3]) << 8);
+        uint16_t sat = static_cast<uint16_t>(payload[4]) | (static_cast<uint16_t>(payload[5]) << 8);
+        for (auto *lgt : this->bound_lights_) {
+          if (lgt != nullptr) {
+            auto call = lgt->make_call();
+            call.set_brightness(static_cast<float>(lightness) / 65535.0f);
+            call.set_state(lightness > 0);
+            call.perform();
+          }
+        }
+        if (opcode == OPCODE_LIGHT_HSL_SET) {
+          uint8_t status_payload[6] = {payload[0], payload[1], payload[2], payload[3], payload[4], payload[5]};
+          this->send_mesh_pdu(src, this->app_key_index_, OPCODE_LIGHT_HSL_STATUS, status_payload, sizeof(status_payload));
+        }
       }
       break;
     case OPCODE_LIGHT_LIGHTNESS_GET: {

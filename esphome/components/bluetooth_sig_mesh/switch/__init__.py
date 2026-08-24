@@ -31,4 +31,3 @@ async def to_code(config: ConfigType) -> None:
     parent = await cg.get_variable(config["mesh_id"])
     cg.add(var.set_parent(parent))
     cg.add(var.set_dst_address(config[CONF_DST_ADDRESS]))
-    cg.add(parent.add_bound_switch(var))

@@ -10,9 +10,17 @@ namespace bluetooth_sig_mesh {
 
 class BluetoothSIGMeshLight : public light::LightOutput, public BluetoothSIGMeshClientEntity {
  public:
+  void set_color_temperature(bool supported) { this->supports_cct_ = supported; }
+
   light::LightTraits get_traits() override {
     auto traits = light::LightTraits();
-    traits.set_supported_color_modes({light::ColorMode::BRIGHTNESS});
+    if (this->supports_cct_) {
+      traits.set_supported_color_modes({light::ColorMode::COLOR_TEMPERATURE});
+      traits.set_min_mireds(153);  // 6500K
+      traits.set_max_mireds(500);  // 2000K
+    } else {
+      traits.set_supported_color_modes({light::ColorMode::BRIGHTNESS});
+    }
     return traits;
   }
 
@@ -32,7 +40,13 @@ class BluetoothSIGMeshLight : public light::LightOutput, public BluetoothSIGMesh
     } else {
       float brightness = values.get_brightness();
       uint16_t lightness = static_cast<uint16_t>(brightness * 65535.0f);
-      this->parent_->send_lightness(this->dst_address_, lightness, true);
+      if (this->supports_cct_ && values.get_color_mode() == light::ColorMode::COLOR_TEMPERATURE) {
+        float mireds = values.get_color_temperature();
+        uint16_t temp_kelvin = static_cast<uint16_t>(1000000.0f / mireds);
+        this->parent_->send_ctl(this->dst_address_, lightness, temp_kelvin, 0, true);
+      } else {
+        this->parent_->send_lightness(this->dst_address_, lightness, true);
+      }
     }
   }
 
@@ -47,9 +61,24 @@ class BluetoothSIGMeshLight : public light::LightOutput, public BluetoothSIGMesh
         call.set_state(brightness > 0.0f);
         call.perform();
       }
+    } else if (opcode == OPCODE_LIGHT_CTL_STATUS && len >= 4) {
+      uint16_t lightness = static_cast<uint16_t>(payload[0]) | (static_cast<uint16_t>(payload[1]) << 8);
+      uint16_t temp_kelvin = static_cast<uint16_t>(payload[2]) | (static_cast<uint16_t>(payload[3]) << 8);
+      float brightness = static_cast<float>(lightness) / 65535.0f;
+      if (this->state_ != nullptr) {
+        auto call = this->state_->make_call();
+        call.set_brightness(brightness);
+        if (temp_kelvin >= 800 && temp_kelvin <= 20000) {
+          float mireds = 1000000.0f / static_cast<float>(temp_kelvin);
+          call.set_color_temperature(mireds);
+        }
+        call.set_state(brightness > 0.0f);
+        call.perform();
+      }
     }
   }
 
+  bool supports_cct_{false};
   light::LightState *state_{nullptr};
 };
 
