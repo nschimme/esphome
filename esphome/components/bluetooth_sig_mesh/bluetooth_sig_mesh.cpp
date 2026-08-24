@@ -101,6 +101,24 @@ void BluetoothSIGMesh::setup() {
   if (this->net_key_.is_set && this->app_key_.is_set) {
     this->provision_state_ = ProvisioningState::PROVISIONED;
   }
+
+  for (const auto &bs : this->bound_sensors_) {
+    if (bs.sensor != nullptr) {
+      uint16_t prop_id = bs.property_id;
+      bs.sensor->add_on_state_callback([this, prop_id](float state) {
+        if (!std::isnan(state)) {
+          int16_t val = static_cast<int16_t>(state * 100.0f);
+          uint8_t status_payload[4] = {
+              static_cast<uint8_t>(prop_id & 0xFF),
+              static_cast<uint8_t>((prop_id >> 8) & 0xFF),
+              static_cast<uint8_t>(val & 0xFF),
+              static_cast<uint8_t>((val >> 8) & 0xFF),
+          };
+          this->send_mesh_pdu(0xFFFF, this->app_key_index_, OPCODE_SENSOR_STATUS, status_payload, sizeof(status_payload));
+        }
+      });
+    }
+  }
 }
 
 void BluetoothSIGMesh::loop() {

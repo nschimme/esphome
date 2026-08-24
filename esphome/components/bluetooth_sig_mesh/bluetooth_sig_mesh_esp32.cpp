@@ -43,6 +43,15 @@ void ESP32BluetoothSIGMesh::init_esp32_mesh_() {
         });
     ESP_LOGD(TAG, "Registered ESP32 BLE GAP event handler for SIG Mesh");
   }
+
+#if defined(USE_ESP32_BLE_SERVER)
+  if (esp32_ble_server::global_ble_server != nullptr) {
+    auto *adv = esp32_ble_server::global_ble_server->get_advertising();
+    if (adv != nullptr) {
+      adv->add_service_uuid(ble_device_base::ESPBTUUID::from_uint16(MESH_PROXY_SERVICE_UUID));
+    }
+  }
+#endif
 }
 
 void ESP32BluetoothSIGMesh::gap_event_handler_(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
