@@ -1,0 +1,4 @@
+packages:
+  common: !include common.yaml
+
+rp2_ble_tracker:

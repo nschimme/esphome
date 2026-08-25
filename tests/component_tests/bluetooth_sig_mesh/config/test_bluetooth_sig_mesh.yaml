@@ -1,0 +1,9 @@
+esphome:
+  name: test-bluetooth-sig-mesh
+
+esp32:
+  board: esp32dev
+
+bluetooth_sig_mesh:
+  relay: true
+  unicast_address: 0x0002

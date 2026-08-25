@@ -530,6 +530,19 @@ void ESPBTDevice::parse_adv_(const uint8_t *payload, uint16_t len) {
         }
         break;
 
+      case 0x29:  // PB-ADV (Provisioning Bearer Advertisement)
+      case 0x2A:  // Mesh Message (Bluetooth SIG Mesh Network PDU)
+      case 0x2B:  // Mesh Beacon (Unprovisioned Beacon / Secure Network Beacon)
+        // Bluetooth SIG Mesh AD Types are stored separately in mesh_datas_ to avoid
+        // contaminating standard 16-bit GATT Service Data (0x16) entries.
+        if (ad_data_len >= 1) {
+          ServiceData sd;
+          sd.uuid = ESPBTUUID::from_uint16(ad_type);
+          sd.data.assign(ad_data, ad_data + ad_data_len);
+          this->mesh_datas_.push_back(std::move(sd));
+        }
+        break;
+
       case 0x16:  // Service Data — 16-bit UUID
         if (ad_data_len >= 2) {
           uint16_t uuid = (static_cast<uint16_t>(ad_data[1]) << 8) | ad_data[0];
