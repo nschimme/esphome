@@ -218,7 +218,7 @@ LibreTinyBluetoothSIGMesh = bluetooth_sig_mesh_ns.class_(
 
 
 def AUTO_LOAD() -> list[str]:
-    deps = ["ble_device_base"]
+    deps = ["ble_device_base", "sensor", "switch", "light"]
     if CORE.is_esp32:
         return deps + ["esp32_ble_tracker", "esp32_ble_server"]
     if CORE.is_rp2:

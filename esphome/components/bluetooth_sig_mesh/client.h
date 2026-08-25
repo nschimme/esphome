@@ -3,7 +3,7 @@
 #ifdef USE_BLUETOOTH_SIG_MESH
 
 #include "esphome/components/bluetooth_sig_mesh/bluetooth_sig_mesh.h"
-#include "esphome/components/bluetooth_sig_mesh/bluetooth_sig_mesh_node.h"
+#include "esphome/components/bluetooth_sig_mesh/node.h"
 #include "esphome/core/component.h"
 
 namespace esphome {

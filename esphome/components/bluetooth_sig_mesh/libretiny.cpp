@@ -49,7 +49,7 @@ void LibreTinyBluetoothSIGMesh::transmit_last_outgoing_frame() {
   if (pAdvertising != nullptr) {
     BLEAdvertisementData advertisementData;
     std::string payload(reinterpret_cast<const char *>(raw_adv), pdu_len + 5);
-    advertisementData.setSendData(payload);
+    advertisementData.addData(payload);
     pAdvertising->setAdvertisementData(advertisementData);
     pAdvertising->start();
   }

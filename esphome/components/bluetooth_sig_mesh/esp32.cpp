@@ -117,7 +117,7 @@ void ESP32BluetoothSIGMesh::transmit_last_outgoing_frame() {
   }
 }
 
-void ESP32BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint16_t opcode, const uint8_t *payload,
+void ESP32BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint32_t opcode, const uint8_t *payload,
                                           size_t len) {
   BluetoothSIGMesh::send_mesh_pdu(dst, app_idx, opcode, payload, len);
   this->transmit_last_outgoing_frame();

@@ -15,7 +15,7 @@ class RP2040BluetoothSIGMesh : public BluetoothSIGMesh {
   void loop() override;
 
   void process_mesh_pdu(const uint8_t *data, size_t len) override;
-  void send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint16_t opcode, const uint8_t *payload, size_t len) override;
+  void send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint32_t opcode, const uint8_t *payload, size_t len) override;
   void transmit_last_outgoing_frame() override;
 
  protected:
