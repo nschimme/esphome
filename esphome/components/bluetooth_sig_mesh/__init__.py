@@ -3,7 +3,14 @@ from esphome.automation import Action
 import esphome.codegen as cg
 from esphome.components import ble_device_base, light, sensor, switch
 import esphome.config_validation as cv
-from esphome.const import CONF_ID, CONF_LEVEL, CONF_LIGHT_ID, CONF_NAME, CONF_SENSOR_ID, CONF_STATE
+from esphome.const import (
+    CONF_ID,
+    CONF_LEVEL,
+    CONF_LIGHT_ID,
+    CONF_NAME,
+    CONF_SENSOR_ID,
+    CONF_STATE,
+)
 from esphome.core import CORE
 from esphome.types import ConfigType
 
@@ -33,6 +40,7 @@ ELEMENT_SCHEMA = cv.Schema(
     }
 )
 
+
 # Unicast addresses must be in range 0x0001..0x7FFF per Bluetooth SIG Mesh Spec v1.0.1 Section 3.4.2.4
 def validate_unicast_address(value):
     val = cv.hex_uint16_t(value)
@@ -41,6 +49,7 @@ def validate_unicast_address(value):
             f"Unicast address 0x{val:04X} is invalid. Must be in range 0x0001..0x7FFF per Bluetooth SIG Mesh Specification."
         )
     return val
+
 
 # Multicast group addresses must be in range 0xC000..0xFEFF per Bluetooth SIG Mesh Spec v1.0.1 Section 3.4.2.5
 def validate_group_address(value):
@@ -51,6 +60,7 @@ def validate_group_address(value):
         )
     return val
 
+
 def validate_hex_key_128(value):
     val = cv.string_strict(value)
     val_clean = val.replace(":", "").replace("-", "").replace(" ", "")
@@ -58,9 +68,10 @@ def validate_hex_key_128(value):
         raise cv.Invalid("Key must be a 128-bit hex string (32 hex characters)")
     try:
         int(val_clean, 16)
-    except ValueError:
-        raise cv.Invalid("Key contains invalid hex characters")
+    except ValueError as err:
+        raise cv.Invalid("Key contains invalid hex characters") from err
     return val_clean
+
 
 bluetooth_sig_mesh_ns = cg.esphome_ns.namespace("bluetooth_sig_mesh")
 BluetoothSIGMesh = bluetooth_sig_mesh_ns.class_(
@@ -88,6 +99,7 @@ CLIENT_ENTITY_BASE_SCHEMA = cv.Schema(
     }
 ).extend(cv.COMPONENT_SCHEMA)
 
+
 def CLIENT_ENTITY_SCHEMA(schema):
     return cv.All(
         schema.extend(CLIENT_ENTITY_BASE_SCHEMA),
@@ -107,6 +119,7 @@ async def register_client_entity(var, config):
         parent = await cg.get_variable(config[CONF_BLUETOOTH_SIG_MESH_ID])
         cg.add(var.set_parent(parent))
         cg.add(var.set_dst_address(config[CONF_UNICAST_ADDRESS]))
+
 
 SendOnOffAction = bluetooth_sig_mesh_ns.class_("SendOnOffAction", Action)
 SendLevelAction = bluetooth_sig_mesh_ns.class_("SendLevelAction", Action)
@@ -188,6 +201,8 @@ async def send_lightness_to_code(config, action_id, template_arg, args):
     template_ = await cg.templatable(config[CONF_LIGHTNESS], args, cg.uint16)
     cg.add(var.set_lightness(template_))
     return var
+
+
 ESP32BluetoothSIGMesh = bluetooth_sig_mesh_ns.class_(
     "ESP32BluetoothSIGMesh", BluetoothSIGMesh
 )
@@ -220,7 +235,9 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_APP_KEY): validate_hex_key_128,
             cv.Optional(CONF_UNICAST_ADDRESS): validate_unicast_address,
             cv.Optional(CONF_ADVERTISE_UNPROVISIONED, default=False): cv.boolean,
-            cv.Optional(CONF_BEACON_INTERVAL, default="0s"): cv.positive_time_period_milliseconds,
+            cv.Optional(
+                CONF_BEACON_INTERVAL, default="0s"
+            ): cv.positive_time_period_milliseconds,
             cv.Optional(CONF_GATT, default=False): cv.boolean,
             cv.Optional(CONF_REMOTE_NODES): cv.ensure_list(REMOTE_NODE_SCHEMA),
             cv.Optional(CONF_ELEMENTS): cv.ensure_list(ELEMENT_SCHEMA),
