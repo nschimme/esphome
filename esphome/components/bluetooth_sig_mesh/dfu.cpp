@@ -44,10 +44,10 @@ bool BluetoothSIGMeshDFUServer::handle_dfu_opcode(uint16_t src, uint16_t opcode,
 void BluetoothSIGMeshDFUServer::handle_fw_info_get_(uint16_t src) {
   ESP_LOGI(TAG, "Firmware Update Info Get received from 0x%04X", src);
   uint8_t status_payload[8] = {
-      0x01,        // Firmware list count = 1
-      0x04,        // Image ID length = 4
-      'E', 'S', 'P', 'H', // Image ID ("ESPH")
-      0x01, 0x00   // Version 1.0
+      0x01,                 // Firmware list count = 1
+      0x04,                 // Image ID length = 4
+      'E',  'S', 'P', 'H',  // Image ID ("ESPH")
+      0x01, 0x00            // Version 1.0
   };
   if (this->mesh_ != nullptr) {
     this->mesh_->send_mesh_pdu(src, 0x0000, OPCODE_FW_UPDATE_INFO_STATUS, status_payload, sizeof(status_payload));
@@ -107,10 +107,10 @@ void BluetoothSIGMeshDFUServer::handle_fw_update_apply_(uint16_t src) {
 void BluetoothSIGMeshDFUServer::handle_blob_info_get_(uint16_t src) {
   ESP_LOGI(TAG, "BLOB Information Get received from 0x%04X", src);
   uint8_t status_payload[8] = {
-      0x0C, 0x00, // Min Block Size Log2 (4096 = 2^12)
-      0x0C, 0x00, // Max Block Size Log2 (4096)
-      0x20, 0x00, // Max Chunk Size (32 bytes)
-      0x00, 0x00  // Capabilities
+      0x0C, 0x00,  // Min Block Size Log2 (4096 = 2^12)
+      0x0C, 0x00,  // Max Block Size Log2 (4096)
+      0x20, 0x00,  // Max Chunk Size (32 bytes)
+      0x00, 0x00   // Capabilities
   };
   if (this->mesh_ != nullptr) {
     this->mesh_->send_mesh_pdu(src, 0x0000, OPCODE_BLOB_INFO_STATUS, status_payload, sizeof(status_payload));

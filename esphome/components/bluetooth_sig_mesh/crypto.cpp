@@ -145,7 +145,7 @@ void BluetoothSIGMeshCrypto::mesh_k1(const uint8_t n[16], const uint8_t *p, size
 // Uses salt smk2 and counter bytes 0x01, 0x02, 0x03 in HKDF-style AES-CMAC expansion to ensure
 // distinct cryptographic separation between network message encryption and header obfuscation.
 void BluetoothSIGMeshCrypto::mesh_k2(const uint8_t net_key[16], const uint8_t *p, size_t p_len, uint8_t *out_nid,
-                                    uint8_t out_ek[16], uint8_t out_pk[16]) {
+                                     uint8_t out_ek[16], uint8_t out_pk[16]) {
   static const uint8_t salt_smk2[16] = {0x33, 0x82, 0x56, 0x1B, 0xAD, 0x82, 0x10, 0x7E,
                                         0xAD, 0x3B, 0xF9, 0x7E, 0x8D, 0xA9, 0xC4, 0x6E};
 
@@ -187,7 +187,7 @@ void BluetoothSIGMeshCrypto::mesh_k2(const uint8_t net_key[16], const uint8_t *p
 // mask derived from IV Index and Privacy Random (first 7 bytes of payload ciphertext).
 // This hides node network topology and sequence numbers from passive over-the-air sniffers.
 void BluetoothSIGMeshCrypto::obfuscate_header(const uint8_t privacy_key[16], uint32_t iv_index,
-                                             const uint8_t privacy_random[7], uint8_t header_data[6]) {
+                                              const uint8_t privacy_random[7], uint8_t header_data[6]) {
   uint8_t privacy_block_in[16] = {0};
   privacy_block_in[0] = 0x00;
   privacy_block_in[1] = 0x00;
@@ -209,7 +209,7 @@ void BluetoothSIGMeshCrypto::obfuscate_header(const uint8_t privacy_key[16], uin
 }
 
 bool BluetoothSIGMeshCrypto::decrypt_mesh_payload(const uint8_t key[16], const uint8_t nonce[13], const uint8_t *ct,
-                                                 size_t ct_len, uint8_t *pt, size_t mic_len) {
+                                                  size_t ct_len, uint8_t *pt, size_t mic_len) {
   if (ct_len < mic_len) {
     return false;
   }
@@ -219,7 +219,7 @@ bool BluetoothSIGMeshCrypto::decrypt_mesh_payload(const uint8_t key[16], const u
 }
 
 void BluetoothSIGMeshCrypto::encrypt_mesh_payload(const uint8_t key[16], const uint8_t nonce[13], const uint8_t *pt,
-                                                 size_t pt_len, uint8_t *ct, size_t mic_len) {
+                                                  size_t pt_len, uint8_t *ct, size_t mic_len) {
   uint8_t tag[8] = {0};
   ble_device_base::aes_ccm_auth_encrypt(key, nonce, 13, nullptr, 0, pt, pt_len, ct, tag, mic_len);
   std::memcpy(ct + pt_len, tag, mic_len);

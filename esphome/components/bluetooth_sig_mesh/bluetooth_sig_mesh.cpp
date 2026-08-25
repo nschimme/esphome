@@ -114,7 +114,8 @@ void BluetoothSIGMesh::setup() {
               static_cast<uint8_t>(val & 0xFF),
               static_cast<uint8_t>((val >> 8) & 0xFF),
           };
-          this->send_mesh_pdu(0xFFFF, this->app_key_index_, OPCODE_SENSOR_STATUS, status_payload, sizeof(status_payload));
+          this->send_mesh_pdu(0xFFFF, this->app_key_index_, OPCODE_SENSOR_STATUS, status_payload,
+                              sizeof(status_payload));
         }
       });
     }
@@ -132,8 +133,8 @@ void BluetoothSIGMesh::loop() {
       // Bytes 2..9: Network ID / Hash (8 bytes)
       // Bytes 10..13: IV Index (4 bytes, Big Endian)
       uint8_t beacon_pdu[12] = {0};
-      beacon_pdu[0] = 0x01;  // Secure Network Beacon
-      beacon_pdu[1] = 0x00;  // Flags
+      beacon_pdu[0] = 0x01;                                         // Secure Network Beacon
+      beacon_pdu[1] = 0x00;                                         // Flags
       std::memcpy(beacon_pdu + 2, this->net_key_.bytes.data(), 8);  // Network ID
       beacon_pdu[10] = (this->iv_index_ >> 24) & 0xFF;
       beacon_pdu[11] = (this->iv_index_ >> 16) & 0xFF;
@@ -204,7 +205,7 @@ void BluetoothSIGMesh::process_mesh_pdu(const uint8_t *data, size_t len) {
     size_t mic_len = hdr.ctl ? 8 : 4;
 
     if (BluetoothSIGMeshCrypto::decrypt_mesh_payload(this->encryption_key_, nonce, encrypted_pdu, encrypted_len,
-                                                      decrypted, mic_len)) {
+                                                     decrypted, mic_len)) {
       hdr.dst = (static_cast<uint16_t>(decrypted[0]) << 8) | static_cast<uint16_t>(decrypted[1]);
       ESP_LOGD(TAG, "Network PDU de-obfuscated and decrypted: SRC=0x%04X, DST=0x%04X, SEQ=%" PRIu32, hdr.src, hdr.dst,
                hdr.seq);
@@ -337,19 +338,17 @@ void BluetoothSIGMesh::send_lightness(uint16_t dst, uint16_t lightness, bool ack
 }
 
 void BluetoothSIGMesh::send_ctl(uint16_t dst, uint16_t lightness, uint16_t temperature, int16_t delta_uv, bool ack) {
-  uint8_t payload[6] = {
-      static_cast<uint8_t>(lightness & 0xFF), static_cast<uint8_t>((lightness >> 8) & 0xFF),
-      static_cast<uint8_t>(temperature & 0xFF), static_cast<uint8_t>((temperature >> 8) & 0xFF),
-      static_cast<uint8_t>(delta_uv & 0xFF), static_cast<uint8_t>((delta_uv >> 8) & 0xFF)};
+  uint8_t payload[6] = {static_cast<uint8_t>(lightness & 0xFF),   static_cast<uint8_t>((lightness >> 8) & 0xFF),
+                        static_cast<uint8_t>(temperature & 0xFF), static_cast<uint8_t>((temperature >> 8) & 0xFF),
+                        static_cast<uint8_t>(delta_uv & 0xFF),    static_cast<uint8_t>((delta_uv >> 8) & 0xFF)};
   uint16_t opcode = ack ? OPCODE_LIGHT_CTL_SET : OPCODE_LIGHT_CTL_SET_UNACK;
   this->send_mesh_pdu(dst, this->app_key_index_, opcode, payload, sizeof(payload));
 }
 
 void BluetoothSIGMesh::send_hsl(uint16_t dst, uint16_t lightness, uint16_t hue, uint16_t saturation, bool ack) {
-  uint8_t payload[6] = {
-      static_cast<uint8_t>(lightness & 0xFF), static_cast<uint8_t>((lightness >> 8) & 0xFF),
-      static_cast<uint8_t>(hue & 0xFF), static_cast<uint8_t>((hue >> 8) & 0xFF),
-      static_cast<uint8_t>(saturation & 0xFF), static_cast<uint8_t>((saturation >> 8) & 0xFF)};
+  uint8_t payload[6] = {static_cast<uint8_t>(lightness & 0xFF),  static_cast<uint8_t>((lightness >> 8) & 0xFF),
+                        static_cast<uint8_t>(hue & 0xFF),        static_cast<uint8_t>((hue >> 8) & 0xFF),
+                        static_cast<uint8_t>(saturation & 0xFF), static_cast<uint8_t>((saturation >> 8) & 0xFF)};
   uint16_t opcode = ack ? OPCODE_LIGHT_HSL_SET : OPCODE_LIGHT_HSL_SET_UNACK;
   this->send_mesh_pdu(dst, this->app_key_index_, opcode, payload, sizeof(payload));
 }
@@ -411,7 +410,8 @@ void BluetoothSIGMesh::process_access_pdu(uint16_t src, uint16_t dst, uint16_t o
         }
         if (opcode == OPCODE_LIGHT_CTL_SET) {
           uint8_t status_payload[6] = {payload[0], payload[1], payload[2], payload[3], 0x00, 0x00};
-          this->send_mesh_pdu(src, this->app_key_index_, OPCODE_LIGHT_CTL_STATUS, status_payload, sizeof(status_payload));
+          this->send_mesh_pdu(src, this->app_key_index_, OPCODE_LIGHT_CTL_STATUS, status_payload,
+                              sizeof(status_payload));
         }
       }
       break;
@@ -431,7 +431,8 @@ void BluetoothSIGMesh::process_access_pdu(uint16_t src, uint16_t dst, uint16_t o
         }
         if (opcode == OPCODE_LIGHT_HSL_SET) {
           uint8_t status_payload[6] = {payload[0], payload[1], payload[2], payload[3], payload[4], payload[5]};
-          this->send_mesh_pdu(src, this->app_key_index_, OPCODE_LIGHT_HSL_STATUS, status_payload, sizeof(status_payload));
+          this->send_mesh_pdu(src, this->app_key_index_, OPCODE_LIGHT_HSL_STATUS, status_payload,
+                              sizeof(status_payload));
         }
       }
       break;
@@ -439,7 +440,8 @@ void BluetoothSIGMesh::process_access_pdu(uint16_t src, uint16_t dst, uint16_t o
       uint16_t lightness = static_cast<uint16_t>(this->generic_level_state_ * 2);
       uint8_t status_payload[2] = {static_cast<uint8_t>(lightness & 0xFF),
                                    static_cast<uint8_t>((lightness >> 8) & 0xFF)};
-      this->send_mesh_pdu(src, this->app_key_index_, OPCODE_LIGHT_LIGHTNESS_STATUS, status_payload, sizeof(status_payload));
+      this->send_mesh_pdu(src, this->app_key_index_, OPCODE_LIGHT_LIGHTNESS_STATUS, status_payload,
+                          sizeof(status_payload));
       break;
     }
     case OPCODE_LIGHT_LIGHTNESS_SET:
@@ -449,7 +451,8 @@ void BluetoothSIGMesh::process_access_pdu(uint16_t src, uint16_t dst, uint16_t o
         this->on_generic_level_set(src, dst, level, false);
         uint8_t status_payload[2] = {static_cast<uint8_t>(lightness & 0xFF),
                                      static_cast<uint8_t>((lightness >> 8) & 0xFF)};
-        this->send_mesh_pdu(src, this->app_key_index_, OPCODE_LIGHT_LIGHTNESS_STATUS, status_payload, sizeof(status_payload));
+        this->send_mesh_pdu(src, this->app_key_index_, OPCODE_LIGHT_LIGHTNESS_STATUS, status_payload,
+                            sizeof(status_payload));
       }
       break;
     case OPCODE_LIGHT_LIGHTNESS_SET_UNACK:
@@ -470,7 +473,8 @@ void BluetoothSIGMesh::process_access_pdu(uint16_t src, uint16_t dst, uint16_t o
                 static_cast<uint8_t>(val & 0xFF),
                 static_cast<uint8_t>((val >> 8) & 0xFF),
             };
-            this->send_mesh_pdu(src, this->app_key_index_, OPCODE_SENSOR_STATUS, status_payload, sizeof(status_payload));
+            this->send_mesh_pdu(src, this->app_key_index_, OPCODE_SENSOR_STATUS, status_payload,
+                                sizeof(status_payload));
           }
         }
       }
@@ -526,7 +530,7 @@ void BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint32_t op
   size_t trans_mic_len = 4;
   if (this->app_key_.is_set) {
     BluetoothSIGMeshCrypto::encrypt_mesh_payload(this->app_key_.bytes.data(), app_nonce, access_pdu, access_len,
-                                                  upper_transport_pdu, trans_mic_len);
+                                                 upper_transport_pdu, trans_mic_len);
   } else {
     std::memcpy(upper_transport_pdu, access_pdu, access_len);
   }
@@ -570,13 +574,12 @@ void BluetoothSIGMesh::send_mesh_pdu(uint16_t dst, uint16_t app_idx, uint32_t op
 
   if (this->net_key_.is_set) {
     BluetoothSIGMeshCrypto::encrypt_mesh_payload(this->encryption_key_, net_nonce, net_plaintext, net_plaintext_len,
-                                                  pdu_buffer + 7, net_mic_len);
+                                                 pdu_buffer + 7, net_mic_len);
     size_t encrypted_frame_len = 7 + net_plaintext_len + net_mic_len;
 
     uint8_t header_to_obfuscate[6] = {pdu_buffer[1], pdu_buffer[2], pdu_buffer[3],
                                       pdu_buffer[4], pdu_buffer[5], pdu_buffer[6]};
-    BluetoothSIGMeshCrypto::obfuscate_header(this->privacy_key_, this->iv_index_, pdu_buffer + 7,
-                                              header_to_obfuscate);
+    BluetoothSIGMeshCrypto::obfuscate_header(this->privacy_key_, this->iv_index_, pdu_buffer + 7, header_to_obfuscate);
     std::memcpy(pdu_buffer + 1, header_to_obfuscate, 6);
 
     std::memcpy(this->last_outgoing_frame_.data(), pdu_buffer, encrypted_frame_len);

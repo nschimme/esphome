@@ -121,13 +121,9 @@ inline void encode_uint16_le(uint16_t val, uint8_t *ptr) {
   ptr[1] = static_cast<uint8_t>((val >> 8) & 0xFF);
 }
 
-inline int16_t decode_int16_le(const uint8_t *ptr) {
-  return static_cast<int16_t>(decode_uint16_le(ptr));
-}
+inline int16_t decode_int16_le(const uint8_t *ptr) { return static_cast<int16_t>(decode_uint16_le(ptr)); }
 
-inline void encode_int16_le(int16_t val, uint8_t *ptr) {
-  encode_uint16_le(static_cast<uint16_t>(val), ptr);
-}
+inline void encode_int16_le(int16_t val, uint8_t *ptr) { encode_uint16_le(static_cast<uint16_t>(val), ptr); }
 
 enum class ProvisioningState : uint8_t {
   UNPROVISIONED = 0,

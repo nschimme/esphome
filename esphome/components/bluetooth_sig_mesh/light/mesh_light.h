@@ -24,9 +24,7 @@ class BluetoothSIGMeshLight : public light::LightOutput, public BluetoothSIGMesh
     return traits;
   }
 
-  void setup_state(light::LightState *state) override {
-    this->state_ = state;
-  }
+  void setup_state(light::LightState *state) override { this->state_ = state; }
 
   void write_state(light::LightState *state) override {
     this->state_ = state;

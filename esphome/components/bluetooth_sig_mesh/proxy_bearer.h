@@ -38,7 +38,7 @@ class BluetoothSIGMeshProxyBearer {
 
  protected:
   BluetoothSIGMesh *mesh_{nullptr};
-  uint8_t proxy_filter_type_{0x00}; // White List
+  uint8_t proxy_filter_type_{0x00};  // White List
   std::set<uint16_t> proxy_filter_addresses_{};
   ProxyDataOutCallback proxy_data_out_callback_{nullptr};
 

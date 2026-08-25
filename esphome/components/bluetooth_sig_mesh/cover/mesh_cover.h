@@ -41,8 +41,10 @@ class BluetoothSIGMeshCover : public cover::Cover, public BluetoothSIGMeshClient
       int16_t level =
           static_cast<int16_t>((static_cast<uint16_t>(payload[1]) << 8) | static_cast<uint16_t>(payload[0]));
       float pos = (static_cast<float>(level) + 32768.0f) / 65535.0f;
-      if (pos < 0.0f) pos = 0.0f;
-      if (pos > 1.0f) pos = 1.0f;
+      if (pos < 0.0f)
+        pos = 0.0f;
+      if (pos > 1.0f)
+        pos = 1.0f;
       this->position = pos;
       this->publish_state();
     }
