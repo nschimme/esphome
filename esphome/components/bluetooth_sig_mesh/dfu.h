@@ -2,8 +2,10 @@
 
 #ifdef USE_BLUETOOTH_SIG_MESH
 
+#if defined(USE_OTA)
 #include "esphome/components/ota/ota_backend.h"
 #include "esphome/components/ota/ota_backend_factory.h"
+#endif
 #include "esphome/core/component.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
@@ -70,7 +72,9 @@ class BluetoothSIGMeshDFUServer {
   uint16_t current_block_num_{0};
   uint32_t received_bytes_{0};
 
+#if defined(USE_OTA)
   ota::OTABackendPtr ota_backend_{nullptr};
+#endif
 };
 
 }  // namespace bluetooth_sig_mesh

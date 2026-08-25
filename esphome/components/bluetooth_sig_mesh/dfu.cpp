@@ -61,6 +61,7 @@ void BluetoothSIGMeshDFUServer::handle_fw_update_start_(uint16_t src, const uint
                        (static_cast<uint32_t>(payload[2]) << 8) | static_cast<uint32_t>(payload[3]);
     ESP_LOGI(TAG, "Initiating Mesh DFU for image size %" PRIu32 " bytes", this->blob_size_);
 
+#if defined(USE_OTA)
     this->ota_backend_ = ota::make_ota_backend();
     if (this->ota_backend_ != nullptr) {
       ota::OTAResponseTypes res = this->ota_backend_->begin(this->blob_size_);
@@ -73,6 +74,7 @@ void BluetoothSIGMeshDFUServer::handle_fw_update_start_(uint16_t src, const uint
         this->dfu_state_ = DFUState::FAILED;
       }
     }
+#endif
   }
 
   uint8_t status_payload[2] = {static_cast<uint8_t>(this->dfu_state_ == DFUState::FAILED ? 0x01 : 0x00), 0x00};
@@ -83,6 +85,7 @@ void BluetoothSIGMeshDFUServer::handle_fw_update_start_(uint16_t src, const uint
 
 void BluetoothSIGMeshDFUServer::handle_fw_update_apply_(uint16_t src) {
   ESP_LOGI(TAG, "Firmware Update Apply received from 0x%04X. Finalizing OTA and rebooting...", src);
+#if defined(USE_OTA)
   if (this->ota_backend_ != nullptr) {
     ota::OTAResponseTypes res = this->ota_backend_->end();
     if (res == ota::OTA_RESPONSE_OK) {
@@ -97,6 +100,7 @@ void BluetoothSIGMeshDFUServer::handle_fw_update_apply_(uint16_t src) {
       ESP_LOGE(TAG, "SIG Mesh DFU end() failed with code %d", res);
     }
   }
+#endif
 
   uint8_t status_payload[2] = {0x01, 0x00};
   if (this->mesh_ != nullptr) {
@@ -153,6 +157,7 @@ void BluetoothSIGMeshDFUServer::handle_blob_chunk_transfer_(uint16_t src, const 
   const uint8_t *chunk_data = payload + 2;
   size_t chunk_len = len - 2;
 
+#if defined(USE_OTA)
   if (this->ota_backend_ != nullptr && chunk_len > 0) {
     ota::OTAResponseTypes res = this->ota_backend_->write(const_cast<uint8_t *>(chunk_data), chunk_len);
     if (res == ota::OTA_RESPONSE_OK) {
@@ -163,6 +168,7 @@ void BluetoothSIGMeshDFUServer::handle_blob_chunk_transfer_(uint16_t src, const 
       ESP_LOGE(TAG, "Error writing DFU Chunk #%" PRIu16 " to flash: code %d", chunk_num, res);
     }
   }
+#endif
 }
 
 }  // namespace bluetooth_sig_mesh

@@ -1,2 +1,4 @@
 packages:
   common: !include common.yaml
+
+bk72xx_ble_tracker:
