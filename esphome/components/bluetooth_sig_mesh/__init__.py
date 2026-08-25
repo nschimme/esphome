@@ -203,11 +203,12 @@ LibreTinyBluetoothSIGMesh = bluetooth_sig_mesh_ns.class_(
 
 
 def AUTO_LOAD() -> list[str]:
+    deps = ["ble_device_base", "ota"]
     if CORE.is_esp32:
-        return ["esp32_ble_tracker", "esp32_ble_server", "ble_device_base"]
+        return deps + ["esp32_ble_tracker", "esp32_ble_server"]
     if CORE.is_rp2:
-        return ["rp2040_ble", "ble_device_base"]
-    return ["ble_device_base"]
+        return deps + ["rp2040_ble"]
+    return deps
 
 
 CONFIG_SCHEMA = cv.All(

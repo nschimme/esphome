@@ -25,16 +25,10 @@ void ESP32BluetoothSIGMesh::loop() { BluetoothSIGMesh::loop(); }
 void ESP32BluetoothSIGMesh::init_esp32_mesh_() {
   ESP_LOGI(TAG, "Configuring ESP32 BLE Mesh GAP advertisement parameters...");
 
-#if defined(USE_ESP32_BLE_SERVER)
-  uint8_t adv_type = ADV_TYPE_IND;
-#else
-  uint8_t adv_type = ADV_TYPE_NONCONN_IND;
-#endif
-
   this->adv_params_ = {
       .adv_int_min = 0x0020,  // 20ms min interval
       .adv_int_max = 0x0040,  // 40ms max interval
-      .adv_type = adv_type,
+      .adv_type = ADV_TYPE_NONCONN_IND,  // Mesh ADV bearer must be non-connectable per SIG Mesh Spec §3.3.1
       .own_addr_type = BLE_ADDR_TYPE_PUBLIC,
       .peer_addr = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
       .peer_addr_type = BLE_ADDR_TYPE_PUBLIC,
@@ -72,6 +66,16 @@ void ESP32BluetoothSIGMesh::gap_event_handler_(esp_gap_ble_cb_event_t event, esp
     case ESP_GAP_BLE_ADV_START_COMPLETE_EVT: {
       if (param->adv_start_cmpl.status != ESP_BT_STATUS_SUCCESS) {
         ESP_LOGE(TAG, "BLE advertising start failed");
+      } else {
+#if defined(USE_ESP32_BLE_SERVER)
+        // Re-enable connectable GATT Server advertising after mesh raw frame broadcast completes
+        if (esp32_ble_server::global_ble_server != nullptr) {
+          auto *adv = esp32_ble_server::global_ble_server->get_advertising();
+          if (adv != nullptr && this->gatt_enabled_) {
+            adv->start();
+          }
+        }
+#endif
       }
       break;
     }

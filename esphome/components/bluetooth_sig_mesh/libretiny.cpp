@@ -22,6 +22,11 @@ void LibreTinyBluetoothSIGMesh::init_libretiny_mesh_() {
   ESP_LOGI(TAG, "Configuring LibreTiny BLE Mesh GAP parameters...");
 }
 
+#if __has_include(<BLEDevice.h>)
+#include <BLEDevice.h>
+#include <BLEAdvertising.h>
+#endif
+
 void LibreTinyBluetoothSIGMesh::transmit_last_outgoing_frame() {
   const uint8_t *pdu_data = this->get_last_outgoing_frame_data();
   size_t pdu_len = this->get_last_outgoing_frame_len();
@@ -38,6 +43,17 @@ void LibreTinyBluetoothSIGMesh::transmit_last_outgoing_frame() {
   std::memcpy(raw_adv + 5, pdu_data, pdu_len);
 
   ESP_LOGD(TAG, "Transmitting LibreTiny Mesh GAP advertisement, len: %zu", pdu_len + 5);
+
+#if __has_include(<BLEDevice.h>)
+  BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
+  if (pAdvertising != nullptr) {
+    BLEAdvertisementData advertisementData;
+    std::string payload(reinterpret_cast<const char *>(raw_adv), pdu_len + 5);
+    advertisementData.setSendData(payload);
+    pAdvertising->setAdvertisementData(advertisementData);
+    pAdvertising->start();
+  }
+#endif
 }
 
 }  // namespace bluetooth_sig_mesh
