@@ -20,6 +20,11 @@ static const char *const TAG = "bluetooth_sig_mesh.crypto";
 // Subkey Generation & CMAC Helpers
 // ---------------------------------------------------------------------------
 
+// Generates AES-CMAC subkeys K1 and K2 as specified in RFC 4493 Section 2.3.
+// Subkeys K1 and K2 are derived by bit-shifting an AES-128 block encryption of zero
+// and conditionally XORing with the constant R_b (0x00...87). These subkeys are XORed
+// into the final message block to differentiate complete and padded incomplete blocks,
+// preventing length extension and forgery attacks in AES-CMAC calculation.
 static void generate_cmac_subkeys(const uint8_t key[16], uint8_t k1[16], uint8_t k2[16]) {
   static const uint8_t const_rb[16] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x87};
@@ -54,6 +59,9 @@ static void generate_cmac_subkeys(const uint8_t key[16], uint8_t k1[16], uint8_t
 // Key Derivation Functions
 // ---------------------------------------------------------------------------
 
+// Derives 6-bit Application ID (AID) from AppKey per SIG Mesh Spec v1.0.1 Section 3.8.2.5.
+// k4(N) = AES-CMAC_T( "id6" || 0x01 ) where T = AES-CMAC_smk4(N).
+// The 6-bit AID allows lower transport frames to quickly identify matching AppKeys.
 uint8_t BluetoothSIGMeshCrypto::mesh_k4(const uint8_t app_key[16]) {
   static const uint8_t salt_smk4[16] = {0x47, 0x14, 0xD4, 0xAA, 0xEB, 0x1F, 0xB6, 0xDF,
                                         0x10, 0xE9, 0xB4, 0x10, 0x14, 0x98, 0xBF, 0xA2};
@@ -132,6 +140,10 @@ void BluetoothSIGMeshCrypto::mesh_k1(const uint8_t n[16], const uint8_t *p, size
   mesh_aes_cmac(t, p, p_len, out);
 }
 
+// Derives NID (7 bits), Encryption Key (16 bytes), and Privacy Key (16 bytes) from NetKey
+// per SIG Mesh Spec v1.0.1 Section 3.8.2.3.
+// Uses salt smk2 and counter bytes 0x01, 0x02, 0x03 in HKDF-style AES-CMAC expansion to ensure
+// distinct cryptographic separation between network message encryption and header obfuscation.
 void BluetoothSIGMeshCrypto::mesh_k2(const uint8_t net_key[16], const uint8_t *p, size_t p_len, uint8_t *out_nid,
                                     uint8_t out_ek[16], uint8_t out_pk[16]) {
   static const uint8_t salt_smk2[16] = {0x33, 0x82, 0x56, 0x1B, 0xAD, 0x82, 0x10, 0x7E,
@@ -170,6 +182,10 @@ void BluetoothSIGMeshCrypto::mesh_k2(const uint8_t net_key[16], const uint8_t *p
 // Privacy Header Obfuscation & AES-CCM Encryption/Decryption
 // ---------------------------------------------------------------------------
 
+// Applies/removes network header privacy obfuscation per SIG Mesh Spec v1.0.1 Section 3.8.7.
+// Obfuscates 6 header bytes (CTL, TTL, SEQ [3 bytes], SRC [2 bytes]) using an AES-128 privacy
+// mask derived from IV Index and Privacy Random (first 7 bytes of payload ciphertext).
+// This hides node network topology and sequence numbers from passive over-the-air sniffers.
 void BluetoothSIGMeshCrypto::obfuscate_header(const uint8_t privacy_key[16], uint32_t iv_index,
                                              const uint8_t privacy_random[7], uint8_t header_data[6]) {
   uint8_t privacy_block_in[16] = {0};

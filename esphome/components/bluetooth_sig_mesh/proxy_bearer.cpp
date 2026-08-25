@@ -29,6 +29,14 @@ void BluetoothSIGMeshProxyBearer::on_proxy_data_in_write(const uint8_t *data, si
 // Proxy PDU & SAR Reassembly Logic
 // ---------------------------------------------------------------------------
 
+// Processes GATT Proxy bearer PDUs received over BLE GATT connection (0x2ADE Data In).
+// Implements Segmentation and Reassembly (SAR) as defined in SIG Mesh Spec v1.0.1 Section 6.3.
+// The SAR field in bits 7-6 of byte 0 indicates:
+//   0x00: Unsegmented (Complete) PDU
+//   0x01: First Segment
+//   0x02: Continuation Segment
+//   0x03: Last Segment
+// Assembled PDUs are forwarded to process_mesh_pdu() or handled as Proxy Configuration messages.
 void BluetoothSIGMeshProxyBearer::handle_proxy_pdu(const uint8_t *data, size_t len) {
   if (len < 1 || data == nullptr) {
     return;

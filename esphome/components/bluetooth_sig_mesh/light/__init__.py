@@ -22,8 +22,9 @@ CONFIG_SCHEMA = CLIENT_ENTITY_SCHEMA(
 
 
 async def to_code(config):
-    var = await light.new_light(config)
-    await cg.register_component(var, config)
-    await register_client_entity(var, config)
+    output_var = cg.new_Pvariable(config[light.CONF_OUTPUT_ID])
+    await cg.register_component(output_var, config)
+    await register_client_entity(output_var, config)
     if CONF_COLOR_TEMPERATURE in config:
-        cg.add(var.set_color_temperature(config[CONF_COLOR_TEMPERATURE]))
+        cg.add(output_var.set_color_temperature(config[CONF_COLOR_TEMPERATURE]))
+    await light.register_light(output_var, config)
