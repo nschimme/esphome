@@ -1,3 +1,7 @@
+// crypto.cpp
+//
+// Cryptographic functions for Bluetooth SIG Mesh network security.
+
 #include "crypto.h"
 
 #ifdef USE_BLUETOOTH_SIG_MESH
@@ -11,6 +15,10 @@ namespace esphome {
 namespace bluetooth_sig_mesh {
 
 static const char *const TAG = "bluetooth_sig_mesh.crypto";
+
+// ---------------------------------------------------------------------------
+// Subkey Generation & CMAC Helpers
+// ---------------------------------------------------------------------------
 
 static void generate_cmac_subkeys(const uint8_t key[16], uint8_t k1[16], uint8_t k2[16]) {
   static const uint8_t const_rb[16] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -41,6 +49,10 @@ static void generate_cmac_subkeys(const uint8_t key[16], uint8_t k1[16], uint8_t
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Key Derivation Functions
+// ---------------------------------------------------------------------------
 
 uint8_t BluetoothSIGMeshCrypto::mesh_k4(const uint8_t app_key[16]) {
   static const uint8_t salt_smk4[16] = {0x47, 0x14, 0xD4, 0xAA, 0xEB, 0x1F, 0xB6, 0xDF,
@@ -153,6 +165,10 @@ void BluetoothSIGMeshCrypto::mesh_k2(const uint8_t net_key[16], const uint8_t *p
   buf[16 + p_len] = 0x03;
   mesh_aes_cmac(t, buf, 16 + p_len + 1, out_pk);
 }
+
+// ---------------------------------------------------------------------------
+// Privacy Header Obfuscation & AES-CCM Encryption/Decryption
+// ---------------------------------------------------------------------------
 
 void BluetoothSIGMeshCrypto::obfuscate_header(const uint8_t privacy_key[16], uint32_t iv_index,
                                              const uint8_t privacy_random[7], uint8_t header_data[6]) {

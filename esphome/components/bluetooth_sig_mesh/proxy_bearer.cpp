@@ -1,3 +1,7 @@
+// proxy_bearer.cpp
+//
+// GATT Proxy Bearer (Service 0x1828) implementation.
+
 #include "proxy_bearer.h"
 
 #ifdef USE_BLUETOOTH_SIG_MESH
@@ -12,10 +16,18 @@ namespace bluetooth_sig_mesh {
 
 static const char *const TAG = "bluetooth_sig_mesh.proxy";
 
+// ---------------------------------------------------------------------------
+// Proxy Data In Write Callback
+// ---------------------------------------------------------------------------
+
 void BluetoothSIGMeshProxyBearer::on_proxy_data_in_write(const uint8_t *data, size_t len) {
   ESP_LOGD(TAG, "GATT Proxy Data In (0x2ADE) write received, len: %zu", len);
   this->handle_proxy_pdu(data, len);
 }
+
+// ---------------------------------------------------------------------------
+// Proxy PDU & SAR Reassembly Logic
+// ---------------------------------------------------------------------------
 
 void BluetoothSIGMeshProxyBearer::handle_proxy_pdu(const uint8_t *data, size_t len) {
   if (len < 1 || data == nullptr) {
@@ -72,6 +84,10 @@ void BluetoothSIGMeshProxyBearer::handle_proxy_pdu(const uint8_t *data, size_t l
       break;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Proxy Data Out Notification & Filter Management
+// ---------------------------------------------------------------------------
 
 void BluetoothSIGMeshProxyBearer::send_proxy_data_out_notification(const uint8_t *data, size_t len) {
   if (data == nullptr || len == 0) {

@@ -1,3 +1,10 @@
+// proxy_bearer.h
+//
+// GATT Proxy Bearer (Service 0x1828) for Bluetooth SIG Mesh:
+// - Proxy PDU Segmentation and Reassembly (SAR) handling
+// - Proxy Configuration PDU processing (allowlist/blocklist filters)
+// - GATT Proxy Data Out notification dispatch
+
 #pragma once
 
 #ifdef USE_BLUETOOTH_SIG_MESH
