@@ -530,7 +530,6 @@ void ESPBTDevice::parse_adv_(const uint8_t *payload, uint16_t len) {
         }
         break;
 
-
       case 0x29:  // PB-ADV (Provisioning Bearer Advertisement)
       case 0x2A:  // Mesh Message (Bluetooth SIG Mesh Network PDU)
       case 0x2B:  // Mesh Beacon (Unprovisioned Beacon / Secure Network Beacon)
