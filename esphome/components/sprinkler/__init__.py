@@ -29,6 +29,7 @@ CONF_DIVIDER = "divider"
 CONF_ENABLE_SWITCH = "enable_switch"
 CONF_MAIN_SWITCH = "main_switch"
 CONF_MANUAL_SELECTION_DELAY = "manual_selection_delay"
+CONF_MAX_CYCLE_DURATION = "max_cycle_duration"
 CONF_MULTIPLIER = "multiplier"
 CONF_MULTIPLIER_NUMBER = "multiplier_number"
 CONF_NEXT_PREV_IGNORE_DISABLED = "next_prev_ignore_disabled"
@@ -46,6 +47,7 @@ CONF_QUEUE_ENABLE_SWITCH = "queue_enable_switch"
 CONF_REPEAT_NUMBER = "repeat_number"
 CONF_REVERSE_SWITCH = "reverse_switch"
 CONF_RUN_DURATION_NUMBER = "run_duration_number"
+CONF_SOAK_DURATION = "soak_duration"
 CONF_STANDBY_SWITCH = "standby_switch"
 CONF_VALVE_NUMBER = "valve_number"
 CONF_VALVE_OPEN_DELAY = "valve_open_delay"
@@ -338,6 +340,8 @@ SPRINKLER_CONTROLLER_SCHEMA = cv.Schema(
         ),
         cv.Optional(CONF_NEXT_PREV_IGNORE_DISABLED, default=False): cv.boolean,
         cv.Optional(CONF_MANUAL_SELECTION_DELAY): cv.positive_time_period_seconds,
+        cv.Optional(CONF_MAX_CYCLE_DURATION): cv.positive_time_period_seconds,
+        cv.Optional(CONF_SOAK_DURATION): cv.positive_time_period_seconds,
         cv.Optional(CONF_MULTIPLIER_NUMBER): cv.maybe_simple_value(
             number.number_schema(
                 SprinklerControllerNumber, entity_category=ENTITY_CATEGORY_CONFIG
@@ -712,6 +716,16 @@ async def to_code(config):
                     sprinkler_controller[CONF_MANUAL_SELECTION_DELAY]
                 )
             )
+
+        if CONF_MAX_CYCLE_DURATION in sprinkler_controller:
+            cg.add(
+                var.set_max_cycle_duration(
+                    sprinkler_controller[CONF_MAX_CYCLE_DURATION]
+                )
+            )
+
+        if CONF_SOAK_DURATION in sprinkler_controller:
+            cg.add(var.set_soak_duration(sprinkler_controller[CONF_SOAK_DURATION]))
 
         if CONF_REPEAT in sprinkler_controller:
             cg.add(var.set_repeat(sprinkler_controller[CONF_REPEAT]))
