@@ -43,6 +43,10 @@ bool AudioStreamInfo::operator==(const AudioStreamInfo &rhs) const {
 
 const char *audio_file_type_to_string(AudioFileType file_type) {
   switch (file_type) {
+#ifdef USE_AUDIO_AAC_SUPPORT
+    case AudioFileType::ADTS:
+      return "ADTS";
+#endif
 #ifdef USE_AUDIO_FLAC_SUPPORT
     case AudioFileType::FLAC:
       return "FLAC";
@@ -67,6 +71,13 @@ const char *audio_file_type_to_string(AudioFileType file_type) {
 AudioFileType detect_audio_file_type(const char *content_type, const char *url) {
   // Try Content-Type header first
   if (content_type != nullptr && content_type[0] != '\0') {
+#ifdef USE_AUDIO_AAC_SUPPORT
+    // Only the ADTS stream form of AAC is supported; MP4/M4A containers are not
+    if (strcasecmp(content_type, "audio/aac") == 0 || strcasecmp(content_type, "audio/aacp") == 0 ||
+        strcasecmp(content_type, "audio/x-aac") == 0 || strcasecmp(content_type, "audio/adts") == 0) {
+      return AudioFileType::ADTS;
+    }
+#endif
 #ifdef USE_AUDIO_MP3_SUPPORT
     if (strcasecmp(content_type, "mp3") == 0 || strcasecmp(content_type, "audio/mp3") == 0 ||
         strcasecmp(content_type, "audio/mpeg") == 0) {
@@ -95,6 +106,11 @@ AudioFileType detect_audio_file_type(const char *content_type, const char *url) 
 
   // Fallback to URL extension
   if (url != nullptr && url[0] != '\0') {
+#ifdef USE_AUDIO_AAC_SUPPORT
+    if (str_endswith_ignore_case(url, ".adts") || str_endswith_ignore_case(url, ".aac")) {
+      return AudioFileType::ADTS;
+    }
+#endif
 #ifdef USE_AUDIO_WAV_SUPPORT
     if (str_endswith_ignore_case(url, ".wav")) {
       return AudioFileType::WAV;
