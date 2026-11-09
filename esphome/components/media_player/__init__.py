@@ -170,15 +170,16 @@ def request_codecs_for_format_configs(
             else:
                 needed_formats.add(fmt)
 
+    # ADTS is opt-in: format: NONE does not compile it in, but an explicit ADTS pipeline always does
+    if "ADTS" in needed_formats:
+        audio.request_aac_support()
+
     if need_all:
-        # ADTS is opt-in (format: ADTS or audio: codecs: aac:); NONE does not compile it in
         audio.request_flac_support()
         audio.request_mp3_support()
         audio.request_opus_support()
         audio.request_wav_support()
     else:
-        if "ADTS" in needed_formats:
-            audio.request_aac_support()
         if "FLAC" in needed_formats:
             audio.request_flac_support()
         if "MP3" in needed_formats:

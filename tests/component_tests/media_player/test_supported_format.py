@@ -25,3 +25,30 @@ def test_adts_omits_sample_bytes() -> None:
 
 def test_flac_keeps_sample_bytes() -> None:
     assert ".sample_bytes = 2" in _build("FLAC")
+
+
+def _requested_codecs(**pipelines: str) -> dict[str, bool]:
+    """Run the codec request for pipelines of the given formats and report what was enabled."""
+    from esphome.components import audio
+    from esphome.core import CORE
+
+    CORE.data.pop(audio.DOMAIN, None)
+    config = {name: {"format": fmt} for name, fmt in pipelines.items()}
+    media_player.request_codecs_for_format_configs(config, list(config))
+    data = CORE.data[audio.DOMAIN]
+    return {"aac": data.aac_support, "flac": data.flac_support}
+
+
+def test_none_does_not_enable_aac() -> None:
+    assert _requested_codecs(media="NONE") == {"aac": False, "flac": True}
+
+
+def test_adts_enables_only_aac() -> None:
+    assert _requested_codecs(media="ADTS") == {"aac": True, "flac": False}
+
+
+def test_none_with_adts_enables_both() -> None:
+    assert _requested_codecs(media="NONE", announcement="ADTS") == {
+        "aac": True,
+        "flac": True,
+    }
