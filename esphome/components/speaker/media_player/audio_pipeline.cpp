@@ -492,6 +492,11 @@ void AudioPipeline::decode_task(void *params) {
                                              this_pipeline->buffer_size_ * 3 / 4);
 
           switch (this_pipeline->current_audio_file_type_) {
+#ifdef USE_AUDIO_AAC_SUPPORT
+            case audio::AudioFileType::ADTS:
+              initial_bytes_to_buffer /= 8;  // Estimate the AAC compression factor is 8
+              break;
+#endif
 #ifdef USE_AUDIO_MP3_SUPPORT
             case audio::AudioFileType::MP3:
               initial_bytes_to_buffer /= 8;  // Estimate the MP3 compression factor is 8

@@ -1,5 +1,6 @@
 audio:
   codecs:
+    aac:
     flac:
       buffer_memory: internal
     mp3:

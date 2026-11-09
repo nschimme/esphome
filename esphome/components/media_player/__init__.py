@@ -48,6 +48,7 @@ MEDIA_PLAYER_FORMAT_PURPOSE_ENUM = MediaPlayerFormatPurpose.options(
 
 # Public API for external components. Do not remove.
 FORMAT_MAPPING = {
+    "ADTS": "adts",
     "FLAC": "flac",
     "MP3": "mp3",
     "OPUS": "opus",
@@ -94,9 +95,9 @@ def build_supported_format_struct(
         ("purpose", purpose),
     ]
 
-    # Omit sample_bytes for MP3: ffmpeg transcoding in Home Assistant fails
-    # if the number of bytes per sample is specified for MP3.
-    if format_config[CONF_FORMAT] != "MP3":
+    # Omit sample_bytes for MP3 and ADTS: ffmpeg transcoding in Home Assistant fails
+    # if the number of bytes per sample is specified (its AAC and MP3 encoders reject s16).
+    if format_config[CONF_FORMAT] not in ("MP3", "ADTS"):
         args.append(("sample_bytes", 2))
 
     # Omitted means no preference, and the client keeps encoding as it always has.
@@ -170,11 +171,14 @@ def request_codecs_for_format_configs(
                 needed_formats.add(fmt)
 
     if need_all:
+        audio.request_aac_support()
         audio.request_flac_support()
         audio.request_mp3_support()
         audio.request_opus_support()
         audio.request_wav_support()
     else:
+        if "ADTS" in needed_formats:
+            audio.request_aac_support()
         if "FLAC" in needed_formats:
             audio.request_flac_support()
         if "MP3" in needed_formats:

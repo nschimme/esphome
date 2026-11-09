@@ -15,6 +15,16 @@
 
 #include "esp_err.h"
 
+// micro-aac
+#ifdef USE_AUDIO_AAC_SUPPORT
+#include <micro_aac/aac_decoder.h>
+#endif
+
+// micro-aac
+#ifdef USE_AUDIO_AAC_SUPPORT
+#include <micro_aac/aac_decoder.h>
+#endif
+
 // micro-flac
 #ifdef USE_AUDIO_FLAC_SUPPORT
 #include <micro_flac/flac_decoder.h>
@@ -57,7 +67,7 @@ class AudioDecoder {
    * @brief Class that facilitates decoding an audio file.
    * The audio file is read from a source (ring buffer or const data pointer), decoded, and sent to an audio sink
    * (ring buffer, speaker component, or callback).
-   * Supports flac, mp3, ogg opus, and wav formats (each enabled independently at compile time).
+   * Supports aac (ADTS), flac, mp3, ogg opus, and wav formats (each enabled independently at compile time).
    */
  public:
   /// @brief Allocates the output transfer buffer and stores the input buffer size for later use by add_source()
@@ -121,6 +131,10 @@ class AudioDecoder {
   void set_pause_output_state(bool pause_state) { this->pause_output_ = pause_state; }
 
  protected:
+#ifdef USE_AUDIO_AAC_SUPPORT
+  FileDecoderState decode_adts_();
+  std::unique_ptr<micro_aac::AACDecoder> aac_decoder_;
+#endif
 #ifdef USE_AUDIO_FLAC_SUPPORT
   FileDecoderState decode_flac_();
   std::unique_ptr<micro_flac::FLACDecoder> flac_decoder_;

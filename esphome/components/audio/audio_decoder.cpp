@@ -78,6 +78,29 @@ esp_err_t AudioDecoder::start(AudioFileType audio_file_type) {
   this->end_of_file_ = false;
 
   switch (this->audio_file_type_) {
+#ifdef USE_AUDIO_AAC_SUPPORT
+    case AudioFileType::ADTS: {
+      this->aac_decoder_ = make_unique<micro_aac::AACDecoder>();
+      micro_aac_dec_config_t config;
+      micro_aac_dec_config_init(&config);
+      config.stream_format = MICRO_AAC_DEC_STREAM_ADTS;
+      config.prefer_psram = true;
+      // The audio pipeline only handles mono and stereo
+      config.downmix = MICRO_AAC_DEC_DOWNMIX_STEREO;
+      if (this->aac_decoder_->init(config) != MICRO_AAC_DEC_OK) {
+        this->aac_decoder_.reset();
+        return ESP_ERR_NO_MEM;
+      }
+      // The decoder reports the worst-case PCM size of one frame; the output buffer must fit it
+      this->free_buffer_required_ = this->aac_decoder_->get_max_output_bytes();
+      if (this->output_transfer_buffer_->capacity() < this->free_buffer_required_) {
+        if (!this->output_transfer_buffer_->reallocate(this->free_buffer_required_)) {
+          return ESP_ERR_NO_MEM;
+        }
+      }
+      break;
+    }
+#endif
 #ifdef USE_AUDIO_FLAC_SUPPORT
     case AudioFileType::FLAC:
       this->flac_decoder_ = make_unique<micro_flac::FLACDecoder>();
@@ -197,6 +220,11 @@ AudioDecoderState AudioDecoder::decode(bool stop_gracefully) {
       state = FileDecoderState::IDLE;
     } else {
       switch (this->audio_file_type_) {
+#ifdef USE_AUDIO_AAC_SUPPORT
+        case AudioFileType::ADTS:
+          state = this->decode_adts_();
+          break;
+#endif
 #ifdef USE_AUDIO_FLAC_SUPPORT
         case AudioFileType::FLAC:
           state = this->decode_flac_();
@@ -245,6 +273,55 @@ AudioDecoderState AudioDecoder::decode(bool stop_gracefully) {
   }
   return AudioDecoderState::DECODING;
 }
+
+#ifdef USE_AUDIO_AAC_SUPPORT
+FileDecoderState AudioDecoder::decode_adts_() {
+  // micro-aac finds the ADTS sync word itself and skips junk; it advances the input pointer past what it consumed.
+  // The sample count it reports is total across channels.
+  uint8_t *input = const_cast<uint8_t *>(this->input_buffer_->data());
+  const int32_t available = static_cast<int32_t>(this->input_buffer_->available());
+  int32_t bytes_left = available;
+  uint32_t samples_decoded = 0;
+
+  micro_aac_dec_status_t result = this->aac_decoder_->decode(
+      &input, &bytes_left, reinterpret_cast<int16_t *>(this->output_transfer_buffer_->get_buffer_end()),
+      static_cast<uint32_t>(this->output_transfer_buffer_->free()), &samples_decoded);
+
+  this->input_buffer_->consume(static_cast<size_t>(available - bytes_left));
+
+  if (result == MICRO_AAC_DEC_OK) {
+    micro_aac_dec_frame_info_t info;
+    if (this->aac_decoder_->get_frame_info(&info) != MICRO_AAC_DEC_OK) {
+      return FileDecoderState::FAILED;
+    }
+    // The rate can differ from the header's when SBR doubles it, so always take it from the decoded frame
+    const audio::AudioStreamInfo stream_info(16, info.num_channels, info.sample_rate);
+    if (!this->audio_stream_info_.has_value() || !(this->audio_stream_info_.value() == stream_info)) {
+      this->audio_stream_info_ = stream_info;
+    }
+    if (samples_decoded > 0) {
+      this->output_transfer_buffer_->increase_buffer_length(stream_info.samples_to_bytes(samples_decoded));
+    }
+  } else if (result == MICRO_AAC_DEC_ERR_UNDERFLOW) {
+    // Partial frame; wait for more data
+    return FileDecoderState::IDLE;
+  } else if (result == MICRO_AAC_DEC_ERR_BUFFER_TOO_SMALL) {
+    this->free_buffer_required_ = this->aac_decoder_->get_max_output_bytes();
+    if (!this->output_transfer_buffer_->reallocate(this->free_buffer_required_)) {
+      return FileDecoderState::FAILED;
+    }
+  } else if (result == MICRO_AAC_DEC_ERR_BAD_HEADER || result == MICRO_AAC_DEC_ERR_DECODE_FAILED) {
+    // Lost sync or a corrupt frame; the decoder has skipped ahead, so retry on the next call
+    ESP_LOGW(TAG, "AAC decoder skipped a corrupt frame");
+    return FileDecoderState::POTENTIALLY_FAILED;
+  } else {
+    ESP_LOGE(TAG, "AAC decoder failed: %d", static_cast<int>(result));
+    return FileDecoderState::FAILED;
+  }
+
+  return FileDecoderState::MORE_TO_PROCESS;
+}
+#endif
 
 #ifdef USE_AUDIO_FLAC_SUPPORT
 FileDecoderState AudioDecoder::decode_flac_() {

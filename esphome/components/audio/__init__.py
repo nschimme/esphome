@@ -27,7 +27,7 @@ audio_ns = cg.esphome_ns.namespace("audio")
 
 AudioFile = audio_ns.struct("AudioFile")
 AudioFileType = audio_ns.enum("AudioFileType", is_class=True)
-AUDIO_FILE_TYPE_ENUM = AudioFileType.options("NONE", "WAV", "MP3", "FLAC", "OPUS")
+AUDIO_FILE_TYPE_ENUM = AudioFileType.options("NONE", "WAV", "MP3", "FLAC", "OPUS", "ADTS")
 
 MEMORY_PSRAM = "psram"
 MEMORY_INTERNAL = "internal"
@@ -60,6 +60,7 @@ class OpusOptions:
 
 @dataclass
 class AudioData:
+    aac_support: bool = False
     flac_support: bool = False
     mp3_support: bool = False
     opus_support: bool = False
@@ -74,6 +75,11 @@ def _get_data() -> AudioData:
     if DOMAIN not in CORE.data:
         CORE.data[DOMAIN] = AudioData()
     return CORE.data[DOMAIN]
+
+
+def request_aac_support() -> None:
+    """Request AAC (ADTS) codec support for audio decoding."""
+    _get_data().aac_support = True
 
 
 def request_flac_support() -> None:
@@ -110,6 +116,7 @@ CONF_MAX_SAMPLE_RATE = "max_sample_rate"
 
 CONF_CODECS = "codecs"
 CONF_WAV = "wav"
+CONF_AAC = "aac"
 CONF_FLAC = "flac"
 CONF_MP3 = "mp3"
 CONF_OPUS = "opus"
@@ -164,8 +171,11 @@ CODEC_OPUS_SCHEMA = cv.Schema(
 
 CODEC_WAV_SCHEMA = cv.Schema({})
 
+CODEC_AAC_SCHEMA = cv.Schema({})
+
 CODECS_SCHEMA = cv.Schema(
     {
+        cv.Optional(CONF_AAC): _maybe_empty_codec(CODEC_AAC_SCHEMA),
         cv.Optional(CONF_FLAC): _maybe_empty_codec(CODEC_FLAC_SCHEMA),
         cv.Optional(CONF_MP3): _maybe_empty_codec(CODEC_MP3_SCHEMA),
         cv.Optional(CONF_OPUS): _maybe_empty_codec(CODEC_OPUS_SCHEMA),
@@ -365,6 +375,8 @@ async def to_code(config: ConfigType) -> None:
                     data.opus.pseudostack.size = size
         if CONF_WAV in codecs_config:
             data.wav_support = True
+        if CONF_AAC in codecs_config:
+            data.aac_support = True
 
     if data.micro_decoder_support:
         add_idf_component(name="esphome/micro-decoder", ref="0.4.0")
@@ -383,6 +395,14 @@ async def to_code(config: ConfigType) -> None:
 
     # Configure each codec library.
     # Adds a define and IDF component for legacy `audio_decoder.cpp`.
+    if data.aac_support:
+        cg.add_define("USE_AUDIO_AAC_SUPPORT")
+        # Not yet published to the component registry; prototype from the fork until it is
+        add_idf_component(
+            name="micro-aac",
+            repo="https://github.com/nschimme/micro-aac.git",
+            ref="094446a4067c64676525352ccf317d29e9d6b983",
+        )
     if data.flac_support:
         cg.add_define("USE_AUDIO_FLAC_SUPPORT")
         add_idf_component(name="esphome/micro-flac", ref="0.3.0")
