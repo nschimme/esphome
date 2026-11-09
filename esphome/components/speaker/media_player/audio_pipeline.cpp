@@ -13,9 +13,9 @@ namespace esphome::speaker {
 static const uint32_t INITIAL_BUFFER_MS = 1000;  // Start playback after buffering this duration of the file
 
 static const uint32_t READ_TASK_STACK_SIZE = 5 * 1024;
-// Opus decoding uses more stack than other codecs
-#ifdef USE_AUDIO_OPUS_SUPPORT
-static const uint32_t DECODE_TASK_STACK_SIZE = 5 * 1024;
+// Opus and AAC decoding use more stack than other codecs; AAC's SBR/FFT stages overflow a 3 KiB stack
+#if defined(USE_AUDIO_OPUS_SUPPORT) || defined(USE_AUDIO_AAC_SUPPORT)
+static const uint32_t DECODE_TASK_STACK_SIZE = 12 * 1024;
 #else
 static const uint32_t DECODE_TASK_STACK_SIZE = 3 * 1024;
 #endif
