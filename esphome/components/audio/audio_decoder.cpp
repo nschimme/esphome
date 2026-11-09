@@ -22,6 +22,8 @@ static const uint8_t MAX_NO_OUTPUT_ITERATIONS = 32;
 static const uint32_t MAX_POTENTIALLY_FAILED_COUNT = 10;
 
 #ifdef USE_AUDIO_AAC_SUPPORT
+// Bytes needed to read an ADTS frame's length
+static const size_t ADTS_HEADER_SIZE = 7;
 // Worst-case PCM for one AAC frame (2048 samples, stereo, 16-bit); micro-aac reports 0 before the first frame
 static const size_t MIN_AAC_OUTPUT_BYTES = 2048 * 2 * sizeof(int16_t);
 #endif
@@ -305,9 +307,21 @@ FileDecoderState AudioDecoder::decode_adts_() {
   int32_t available;
 
   if (staged) {
-    // Complete the held partial frame with data from the source
-    const size_t to_copy = std::min(this->input_buffer_->available(), ADTS_STAGE_SIZE - this->adts_stage_length_);
-    std::memcpy(this->adts_stage_.get() + this->adts_stage_length_, this->input_buffer_->data(), to_copy);
+    // Complete the held partial frame with only as many bytes as it needs, so the stage empties after this frame and
+    // later frames decode straight from the source again
+    uint8_t *stage = this->adts_stage_.get();
+    size_t wanted = ADTS_STAGE_SIZE - this->adts_stage_length_;
+    if (this->adts_stage_length_ < ADTS_HEADER_SIZE) {
+      wanted = ADTS_HEADER_SIZE - this->adts_stage_length_;
+    } else if (stage[0] == 0xFF && (stage[1] & 0xF6) == 0xF0) {
+      const size_t frame_length = ((stage[3] & 0x03) << 11) | (stage[4] << 3) | (stage[5] >> 5);
+      if (frame_length >= ADTS_HEADER_SIZE && frame_length <= ADTS_STAGE_SIZE) {
+        wanted = frame_length > this->adts_stage_length_ ? frame_length - this->adts_stage_length_ : 0;
+      }
+    }
+    const size_t to_copy =
+        std::min({this->input_buffer_->available(), ADTS_STAGE_SIZE - this->adts_stage_length_, wanted});
+    std::memcpy(stage + this->adts_stage_length_, this->input_buffer_->data(), to_copy);
     this->input_buffer_->consume(to_copy);
     input_consumed = to_copy;
     this->adts_stage_length_ += to_copy;
