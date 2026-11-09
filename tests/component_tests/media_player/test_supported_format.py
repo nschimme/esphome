@@ -52,3 +52,27 @@ def test_none_with_adts_enables_both() -> None:
         "aac": True,
         "flac": True,
     }
+
+
+def test_aac_options_default_to_full_hev() -> None:
+    from esphome.components import audio
+
+    config = audio.CODEC_AAC_SCHEMA({})
+    assert "sbr" not in config and "ps" not in config
+
+
+def test_aac_lc_only_options() -> None:
+    from esphome.components import audio
+
+    config = audio.CODEC_AAC_SCHEMA({"sbr": False, "ps": False})
+    assert config == {"sbr": False, "ps": False}
+
+
+def test_aac_ps_requires_sbr() -> None:
+    import pytest
+
+    from esphome.components import audio
+    import esphome.config_validation as cv
+
+    with pytest.raises(cv.Invalid, match="requires sbr"):
+        audio.CODEC_AAC_SCHEMA({"sbr": False, "ps": True})

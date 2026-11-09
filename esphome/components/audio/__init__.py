@@ -42,6 +42,12 @@ class FlacOptions:
 
 
 @dataclass
+class AacOptions:
+    sbr: bool | None = None
+    ps: bool | None = None
+
+
+@dataclass
 class Mp3Options:
     buffer_memory: str | None = None
 
@@ -68,6 +74,7 @@ class AudioData:
     opus_support: bool = False
     wav_support: bool = False
     micro_decoder_support: bool = False
+    aac: AacOptions = field(default_factory=AacOptions)
     flac: FlacOptions = field(default_factory=FlacOptions)
     mp3: Mp3Options = field(default_factory=Mp3Options)
     opus: OpusOptions = field(default_factory=OpusOptions)
@@ -119,6 +126,8 @@ CONF_MAX_SAMPLE_RATE = "max_sample_rate"
 CONF_CODECS = "codecs"
 CONF_WAV = "wav"
 CONF_AAC = "aac"
+CONF_SBR = "sbr"
+CONF_PS = "ps"
 CONF_FLAC = "flac"
 CONF_MP3 = "mp3"
 CONF_OPUS = "opus"
@@ -173,7 +182,23 @@ CODEC_OPUS_SCHEMA = cv.Schema(
 
 CODEC_WAV_SCHEMA = cv.Schema({})
 
-CODEC_AAC_SCHEMA = cv.Schema({})
+
+def _validate_aac(config: ConfigType) -> ConfigType:
+    # Parametric stereo works on top of SBR's QMF domain
+    if config.get(CONF_PS) and config.get(CONF_SBR) is False:
+        raise cv.Invalid(f"{CONF_PS} requires {CONF_SBR}", path=[CONF_PS])
+    return config
+
+
+CODEC_AAC_SCHEMA = cv.All(
+    cv.Schema(
+        {
+            cv.Optional(CONF_SBR): cv.boolean,
+            cv.Optional(CONF_PS): cv.boolean,
+        }
+    ),
+    _validate_aac,
+)
 
 CODECS_SCHEMA = cv.Schema(
     {
@@ -377,8 +402,12 @@ async def to_code(config: ConfigType) -> None:
                     data.opus.pseudostack.size = size
         if CONF_WAV in codecs_config:
             data.wav_support = True
-        if CONF_AAC in codecs_config:
+        if (aac_config := codecs_config.get(CONF_AAC)) is not None:
             data.aac_support = True
+            if (sbr := aac_config.get(CONF_SBR)) is not None:
+                data.aac.sbr = sbr
+            if (ps := aac_config.get(CONF_PS)) is not None:
+                data.aac.ps = ps
 
     if data.micro_decoder_support:
         add_idf_component(name="esphome/micro-decoder", ref="0.4.0")
@@ -403,8 +432,14 @@ async def to_code(config: ConfigType) -> None:
         add_idf_component(
             name="micro-aac",
             repo="https://github.com/nschimme/micro-aac.git",
-            ref="bed43f2ab913a0ea851b70220270c8254c73f1f1",
+            ref="70fcb35a76a3f1cdea940da72cdaee15c6ce9fa2",
         )
+        # An AAC-LC only decoder saves ~21 KB of internal RAM and ~42 KB of flash. HE-AAC streams then play their
+        # core layer at half the sample rate
+        if data.aac.sbr is not None:
+            add_idf_sdkconfig_option("CONFIG_MICRO_AAC_DECODER_SBR", data.aac.sbr)
+        if data.aac.ps is not None:
+            add_idf_sdkconfig_option("CONFIG_MICRO_AAC_DECODER_PS", data.aac.ps)
     if data.flac_support:
         cg.add_define("USE_AUDIO_FLAC_SUPPORT")
         add_idf_component(name="esphome/micro-flac", ref="0.3.0")
