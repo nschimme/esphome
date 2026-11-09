@@ -134,6 +134,11 @@ class AudioDecoder {
 #ifdef USE_AUDIO_AAC_SUPPORT
   FileDecoderState decode_adts_();
   std::unique_ptr<micro_aac::AACDecoder> aac_decoder_;
+  // micro-aac does not buffer: it needs each whole ADTS frame in one contiguous region. The input source exposes a
+  // chunk at a time, so a frame split across chunks is stitched here. 8191 bytes is the largest possible ADTS frame.
+  static constexpr size_t ADTS_STAGE_SIZE = 8192;
+  std::unique_ptr<uint8_t[]> adts_stage_;
+  size_t adts_stage_length_{0};
 #endif
 #ifdef USE_AUDIO_FLAC_SUPPORT
   FileDecoderState decode_flac_();

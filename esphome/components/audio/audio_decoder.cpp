@@ -5,6 +5,10 @@
 #include "esphome/core/hal.h"
 #include "esphome/core/log.h"
 
+#include <algorithm>
+#include <cstring>
+#include <new>
+
 namespace esphome::audio {
 
 ESPHOME_LOG_TAG(TAG, "audio.decoder");
@@ -16,6 +20,11 @@ static const uint32_t READ_WRITE_TIMEOUT_MS = 20;  // Timeout for transferring a
 static const uint8_t MAX_NO_OUTPUT_ITERATIONS = 32;
 
 static const uint32_t MAX_POTENTIALLY_FAILED_COUNT = 10;
+
+#ifdef USE_AUDIO_AAC_SUPPORT
+// Worst-case PCM for one AAC frame (2048 samples, stereo, 16-bit); micro-aac reports 0 before the first frame
+static const size_t MIN_AAC_OUTPUT_BYTES = 2048 * 2 * sizeof(int16_t);
+#endif
 
 AudioDecoder::AudioDecoder(size_t input_buffer_size, size_t output_buffer_size)
     : input_buffer_size_(input_buffer_size) {
@@ -81,6 +90,11 @@ esp_err_t AudioDecoder::start(AudioFileType audio_file_type) {
 #ifdef USE_AUDIO_AAC_SUPPORT
     case AudioFileType::ADTS: {
       this->aac_decoder_ = make_unique<micro_aac::AACDecoder>();
+      this->adts_stage_.reset(new (std::nothrow) uint8_t[ADTS_STAGE_SIZE]);
+      this->adts_stage_length_ = 0;
+      if (this->adts_stage_ == nullptr) {
+        return ESP_ERR_NO_MEM;
+      }
       micro_aac_dec_config_t config;
       micro_aac_dec_config_init(&config);
       config.stream_format = MICRO_AAC_DEC_STREAM_ADTS;
@@ -92,7 +106,7 @@ esp_err_t AudioDecoder::start(AudioFileType audio_file_type) {
         return ESP_ERR_NO_MEM;
       }
       // The decoder reports the worst-case PCM size of one frame; the output buffer must fit it
-      this->free_buffer_required_ = this->aac_decoder_->get_max_output_bytes();
+      this->free_buffer_required_ = std::max<size_t>(this->aac_decoder_->get_max_output_bytes(), MIN_AAC_OUTPUT_BYTES);
       if (this->output_transfer_buffer_->capacity() < this->free_buffer_required_) {
         if (!this->output_transfer_buffer_->reallocate(this->free_buffer_required_)) {
           return ESP_ERR_NO_MEM;
@@ -278,8 +292,25 @@ AudioDecoderState AudioDecoder::decode(bool stop_gracefully) {
 FileDecoderState AudioDecoder::decode_adts_() {
   // micro-aac finds the ADTS sync word itself and skips junk; it advances the input pointer past what it consumed.
   // The sample count it reports is total across channels.
-  uint8_t *input = const_cast<uint8_t *>(this->input_buffer_->data());
-  const int32_t available = static_cast<int32_t>(this->input_buffer_->available());
+  const bool staged = this->adts_stage_length_ > 0;
+  size_t input_consumed = 0;
+  uint8_t *input;
+  int32_t available;
+
+  if (staged) {
+    // Complete the held partial frame with data from the source
+    const size_t to_copy = std::min(this->input_buffer_->available(), ADTS_STAGE_SIZE - this->adts_stage_length_);
+    std::memcpy(this->adts_stage_.get() + this->adts_stage_length_, this->input_buffer_->data(), to_copy);
+    this->input_buffer_->consume(to_copy);
+    input_consumed = to_copy;
+    this->adts_stage_length_ += to_copy;
+    input = this->adts_stage_.get();
+    available = static_cast<int32_t>(this->adts_stage_length_);
+  } else {
+    input = const_cast<uint8_t *>(this->input_buffer_->data());
+    available = static_cast<int32_t>(this->input_buffer_->available());
+  }
+
   int32_t bytes_left = available;
   uint32_t samples_decoded = 0;
 
@@ -287,7 +318,28 @@ FileDecoderState AudioDecoder::decode_adts_() {
       &input, &bytes_left, reinterpret_cast<int16_t *>(this->output_transfer_buffer_->get_buffer_end()),
       static_cast<uint32_t>(this->output_transfer_buffer_->free()), &samples_decoded);
 
-  this->input_buffer_->consume(static_cast<size_t>(available - bytes_left));
+  const size_t decoder_consumed = static_cast<size_t>(available - bytes_left);
+  if (staged) {
+    // Keep only what the decoder left unread
+    std::memmove(this->adts_stage_.get(), input, bytes_left);
+    this->adts_stage_length_ = bytes_left;
+  } else {
+    if (result == MICRO_AAC_DEC_ERR_UNDERFLOW && bytes_left > 0 && static_cast<size_t>(bytes_left) < ADTS_STAGE_SIZE) {
+      // The source ends in a partial frame: hold it until the next chunk arrives
+      std::memcpy(this->adts_stage_.get(), input, bytes_left);
+      this->adts_stage_length_ = bytes_left;
+      input_consumed = static_cast<size_t>(available);
+    } else {
+      input_consumed = decoder_consumed;
+    }
+    this->input_buffer_->consume(input_consumed);
+  }
+
+  if (result == MICRO_AAC_DEC_ERR_UNDERFLOW && this->adts_stage_length_ >= ADTS_STAGE_SIZE) {
+    // A full stage with no complete frame is not valid ADTS; drop it and resync
+    this->adts_stage_length_ = 0;
+    return FileDecoderState::POTENTIALLY_FAILED;
+  }
 
   if (result == MICRO_AAC_DEC_OK) {
     micro_aac_dec_frame_info_t info;
@@ -303,10 +355,10 @@ FileDecoderState AudioDecoder::decode_adts_() {
       this->output_transfer_buffer_->increase_buffer_length(stream_info.samples_to_bytes(samples_decoded));
     }
   } else if (result == MICRO_AAC_DEC_ERR_UNDERFLOW) {
-    // Partial frame; wait for more data
-    return FileDecoderState::IDLE;
+    // Partial frame; wait for more data. Input was consumed if it moved into the stage.
+    return input_consumed > 0 ? FileDecoderState::MORE_TO_PROCESS : FileDecoderState::IDLE;
   } else if (result == MICRO_AAC_DEC_ERR_BUFFER_TOO_SMALL) {
-    this->free_buffer_required_ = this->aac_decoder_->get_max_output_bytes();
+    this->free_buffer_required_ = std::max<size_t>(this->aac_decoder_->get_max_output_bytes(), MIN_AAC_OUTPUT_BYTES);
     if (!this->output_transfer_buffer_->reallocate(this->free_buffer_required_)) {
       return FileDecoderState::FAILED;
     }
