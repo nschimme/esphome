@@ -88,32 +88,18 @@ esp_err_t AudioDecoder::start(AudioFileType audio_file_type) {
 
   switch (this->audio_file_type_) {
 #ifdef USE_AUDIO_AAC_SUPPORT
-    case AudioFileType::ADTS: {
-      this->aac_decoder_ = make_unique<micro_aac::AACDecoder>();
+    case AudioFileType::ADTS:
+      // Keep start() cheap: the pipeline calls it before attaching the source, and the reader can finish a small
+      // file and release its ring buffer while a slow start() is still running. The AAC decoder itself is created
+      // on the first decode call.
       this->adts_stage_.reset(new (std::nothrow) uint8_t[ADTS_STAGE_SIZE]);
       this->adts_stage_length_ = 0;
+      this->aac_decoder_.reset();
       if (this->adts_stage_ == nullptr) {
         return ESP_ERR_NO_MEM;
       }
-      micro_aac_dec_config_t config;
-      micro_aac_dec_config_init(&config);
-      config.stream_format = MICRO_AAC_DEC_STREAM_ADTS;
-      config.prefer_psram = true;
-      // The audio pipeline only handles mono and stereo
-      config.downmix = MICRO_AAC_DEC_DOWNMIX_STEREO;
-      if (this->aac_decoder_->init(config) != MICRO_AAC_DEC_OK) {
-        this->aac_decoder_.reset();
-        return ESP_ERR_NO_MEM;
-      }
-      // The decoder reports the worst-case PCM size of one frame; the output buffer must fit it
-      this->free_buffer_required_ = std::max<size_t>(this->aac_decoder_->get_max_output_bytes(), MIN_AAC_OUTPUT_BYTES);
-      if (this->output_transfer_buffer_->capacity() < this->free_buffer_required_) {
-        if (!this->output_transfer_buffer_->reallocate(this->free_buffer_required_)) {
-          return ESP_ERR_NO_MEM;
-        }
-      }
+      this->free_buffer_required_ = MIN_AAC_OUTPUT_BYTES;
       break;
-    }
 #endif
 #ifdef USE_AUDIO_FLAC_SUPPORT
     case AudioFileType::FLAC:
@@ -290,6 +276,27 @@ AudioDecoderState AudioDecoder::decode(bool stop_gracefully) {
 
 #ifdef USE_AUDIO_AAC_SUPPORT
 FileDecoderState AudioDecoder::decode_adts_() {
+  if (this->aac_decoder_ == nullptr) {
+    auto decoder = make_unique<micro_aac::AACDecoder>();
+    micro_aac_dec_config_t config;
+    micro_aac_dec_config_init(&config);
+    config.stream_format = MICRO_AAC_DEC_STREAM_ADTS;
+    config.prefer_psram = true;
+    // The audio pipeline only handles mono and stereo
+    config.downmix = MICRO_AAC_DEC_DOWNMIX_STEREO;
+    if (decoder->init(config) != MICRO_AAC_DEC_OK) {
+      ESP_LOGE(TAG, "AAC decoder failed to initialize");
+      return FileDecoderState::FAILED;
+    }
+    // The decoder reports the worst-case PCM size of one frame; the output buffer must fit it
+    this->free_buffer_required_ = std::max<size_t>(decoder->get_max_output_bytes(), MIN_AAC_OUTPUT_BYTES);
+    if (this->output_transfer_buffer_->capacity() < this->free_buffer_required_ &&
+        !this->output_transfer_buffer_->reallocate(this->free_buffer_required_)) {
+      return FileDecoderState::FAILED;
+    }
+    this->aac_decoder_ = std::move(decoder);
+  }
+
   // micro-aac finds the ADTS sync word itself and skips junk; it advances the input pointer past what it consumed.
   // The sample count it reports is total across channels.
   const bool staged = this->adts_stage_length_ > 0;
