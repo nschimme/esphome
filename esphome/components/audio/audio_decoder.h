@@ -137,7 +137,13 @@ class AudioDecoder {
   // micro-aac does not buffer: it needs each whole ADTS frame in one contiguous region. The input source exposes a
   // chunk at a time, so a frame split across chunks is stitched here. 8191 bytes is the largest possible ADTS frame.
   static constexpr size_t ADTS_STAGE_SIZE = 8192;
-  std::unique_ptr<uint8_t[]> adts_stage_;
+  struct AdtsStageDeleter {
+    void operator()(uint8_t *stage) const {
+      RAMAllocator<uint8_t> allocator;
+      allocator.deallocate(stage, ADTS_STAGE_SIZE);
+    }
+  };
+  std::unique_ptr<uint8_t, AdtsStageDeleter> adts_stage_;
   size_t adts_stage_length_{0};
 #endif
 #ifdef USE_AUDIO_FLAC_SUPPORT

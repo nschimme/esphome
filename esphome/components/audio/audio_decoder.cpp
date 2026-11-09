@@ -7,7 +7,6 @@
 
 #include <algorithm>
 #include <cstring>
-#include <new>
 
 namespace esphome::audio {
 
@@ -94,7 +93,11 @@ esp_err_t AudioDecoder::start(AudioFileType audio_file_type) {
       // Keep start() cheap: the pipeline calls it before attaching the source, and the reader can finish a small
       // file and release its ring buffer while a slow start() is still running. The AAC decoder itself is created
       // on the first decode call.
-      this->adts_stage_.reset(new (std::nothrow) uint8_t[ADTS_STAGE_SIZE]);
+      {
+        // Prefers PSRAM, falling back to internal RAM
+        RAMAllocator<uint8_t> allocator;
+        this->adts_stage_.reset(allocator.allocate(ADTS_STAGE_SIZE));
+      }
       this->adts_stage_length_ = 0;
       this->aac_decoder_.reset();
       if (this->adts_stage_ == nullptr) {
