@@ -171,7 +171,7 @@ def request_codecs_for_format_configs(
                 needed_formats.add(fmt)
 
     if need_all:
-        audio.request_aac_support()
+        # ADTS is opt-in (format: ADTS or audio: codecs: aac:); NONE does not compile it in
         audio.request_flac_support()
         audio.request_mp3_support()
         audio.request_opus_support()

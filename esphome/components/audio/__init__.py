@@ -403,7 +403,7 @@ async def to_code(config: ConfigType) -> None:
         add_idf_component(
             name="micro-aac",
             repo="https://github.com/nschimme/micro-aac.git",
-            ref="094446a4067c64676525352ccf317d29e9d6b983",
+            ref="bed43f2ab913a0ea851b70220270c8254c73f1f1",
         )
     if data.flac_support:
         cg.add_define("USE_AUDIO_FLAC_SUPPORT")
